@@ -1,5 +1,6 @@
 import { cuFetch } from './client.js';
 import { LIST_ENTRIES, LIST_PEOPLE, LIST_PROJECTS, FIELDS, ccIdToName, ccNameToId } from './fields.js';
+import { people, projects } from './lists.js';
 
 // session cache: task name → clickup task id
 const taskIdCache    = new Map();
@@ -28,6 +29,48 @@ async function ensureProjectCache() {
   if (projectIdCache.size > 0) return;
   const tasks = await fetchAllFromList(LIST_PROJECTS);
   tasks.forEach(t => projectIdCache.set(t.name.trim(), t.id));
+}
+
+// Normaliza nome para comparação: remove acentos e lowercase. Evita duplicatas tipo
+// "Edilson Junior" vs "Edilson Júnior" criarem 2 registros.
+function normalizeName(s) {
+  return (s || '').trim().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+function findInCache(cache, name) {
+  if (cache.has(name)) return cache.get(name);
+  const norm = normalizeName(name);
+  for (const [k, v] of cache) {
+    if (normalizeName(k) === norm) return v;
+  }
+  return null;
+}
+
+// Auto-cria pessoa em LISTA_PESSOAS se não existir. Idempotente via cache de sessão.
+// Match insensível a acentos: "Edilson Junior" encontra "Edilson Júnior".
+// Erros propagam — não silenciamos: pessoa sem ID linkado quebra o relatório.
+export async function ensurePerson(name) {
+  const clean = (name || '').trim();
+  if (!clean) throw new Error('ensurePerson: nome vazio');
+  await ensurePersonCache();
+  const found = findInCache(personIdCache, clean);
+  if (found) return found;
+  const created = await people.add(clean);
+  personIdCache.set(clean, created.id);
+  return created.id;
+}
+
+// Auto-cria projeto em LISTA_PROJETOS se não existir. Idempotente via cache de sessão.
+// Match insensível a acentos pelo mesmo motivo de ensurePerson.
+export async function ensureProject(name) {
+  const clean = (name || '').trim();
+  if (!clean) throw new Error('ensureProject: nome vazio');
+  await ensureProjectCache();
+  const found = findInCache(projectIdCache, clean);
+  if (found) return found;
+  const created = await projects.add(clean);
+  projectIdCache.set(clean, created.id);
+  return created.id;
 }
 
 export function makeTaskName(year, isoWeek, person, project) {
@@ -104,9 +147,16 @@ async function setField(taskId, fieldId, value) {
   });
 }
 
-async function createEntry(row) {
+export async function createEntry(row) {
   const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
   const ccOptionId = row.Business_Unit ? ccNameToId(row.Business_Unit) : null;
+
+  // Garante que pessoa e projeto existem ANTES de criar a entry — falha fast se não puder.
+  // Em 2027+ isso significa que projetos novos são cadastrados on demand sem cadastro manual.
+  const [personId, projectId] = await Promise.all([
+    ensurePerson(row.Person),
+    ensureProject(row.Project),
+  ]);
 
   const task = await cuFetch(`/list/${LIST_ENTRIES}/task`, {
     method: 'POST',
@@ -119,23 +169,15 @@ async function createEntry(row) {
         { id: FIELDS.projeto,          value: row.Project },
         ...(ccOptionId ? [{ id: FIELDS.centro_de_custo, value: ccOptionId }] : []),
         { id: FIELDS.horas_previstas,  value: row.Hours_Forecast ?? null },
-        { id: FIELDS.horas_realizadas, value: null },
+        { id: FIELDS.horas_realizadas, value: row.Hours_Consolidated ?? null },
       ],
     },
   });
 
   taskIdCache.set(name, task.id);
 
-  // Relationship fields — non-blocking
-  try {
-    await Promise.all([ensurePersonCache(), ensureProjectCache()]);
-    const personId  = personIdCache.get(row.Person);
-    const projectId = projectIdCache.get(row.Project);
-    if (personId)  await setField(task.id, FIELDS.rel_colaborador, { add: [personId] });
-    if (projectId) await setField(task.id, FIELDS.rel_projeto,     { add: [projectId] });
-  } catch (e) {
-    console.warn('rel fields skipped:', e.message);
-  }
+  await setField(task.id, FIELDS.rel_colaborador, { add: [personId] });
+  await setField(task.id, FIELDS.rel_projeto,     { add: [projectId] });
 
   return task.id;
 }

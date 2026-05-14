@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Plano de Rollout — Timesheet v2 | Grupo SAL</title>
+<style>
+  :root {
+    --bg: #fbfbfd; --fg: #1d1d1f; --muted: #6e6e73; --accent: #0066cc;
+    --line: #d2d2d7; --soft: #f5f5f7; --code: #d12f1b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+    background: var(--bg); color: var(--fg); margin: 0; line-height: 1.65;
+    font-size: 16px; -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 820px; margin: 0 auto; padding: 48px 28px 96px; }
+  .header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2px solid var(--fg); padding-bottom: 16px; margin-bottom: 32px;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .header .brand { font-weight: 600; font-size: 18px; }
+  .header .meta { color: var(--muted); font-size: 14px; }
+  .version-badge {
+    display: inline-block; background: var(--accent); color: white;
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px;
+    letter-spacing: 0.6px; margin-left: 8px; vertical-align: middle;
+  }
+  .changelog {
+    background: #e8f4ff; border-left: 4px solid var(--accent);
+    padding: 14px 20px; border-radius: 6px; margin: 0 0 28px;
+    font-size: 14.5px;
+  }
+  .changelog strong { color: var(--accent); }
+  h1 { font-size: 36px; margin: 0 0 8px; letter-spacing: -0.8px; font-weight: 700; }
+  h2 { font-size: 24px; margin: 40px 0 14px; color: var(--accent);
+        border-bottom: 1px solid var(--line); padding-bottom: 8px; letter-spacing: -0.3px; }
+  h3 { font-size: 18px; margin: 28px 0 10px; font-weight: 600; }
+  h4 { font-size: 15px; margin: 20px 0 6px; color: var(--muted); text-transform: uppercase;
+        letter-spacing: 0.4px; font-weight: 600; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 10px 0 10px 24px; padding: 0; }
+  li { margin: 6px 0; }
+  code { background: var(--soft); padding: 2px 7px; border-radius: 5px;
+          font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 13.5px; color: var(--code); }
+  pre { background: var(--soft); padding: 14px 16px; border-radius: 10px; overflow-x: auto;
+         font-size: 13px; line-height: 1.55; margin: 14px 0; }
+  pre code { background: transparent; padding: 0; color: var(--fg); }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14.5px;
+           background: white; border-radius: 8px; overflow: hidden;
+           box-shadow: 0 1px 0 var(--line); }
+  th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-weight: 600; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover { border-bottom-color: var(--accent); }
+  strong { font-weight: 600; }
+  .footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line);
+             color: var(--muted); font-size: 13px; text-align: center; }
+  @media (max-width: 600px) {
+    body { font-size: 15px; }
+    .container { padding: 28px 18px 60px; }
+    h1 { font-size: 28px; } h2 { font-size: 20px; }
+    table { font-size: 13px; } th, td { padding: 8px 9px; }
+  }
+</style>
+</head><body>
+<div class="container">
+<div class="header">
+  <div class="brand">Grupo SAL · Timesheet <span class="version-badge">v2</span></div>
+  <div class="meta">Plano de migração e rollout · 2026-05-13</div>
+</div>
+<div class="changelog">
+  <strong>Mudanças v1 → v2:</strong>
+  <ul>
+    <li>Números atualizados com base no CSV real: <strong>1.851 linhas, W01–W20</strong> (v1 dizia 875 linhas / W01–W13 por leitura cacheada do Drive)</li>
+    <li>Removido o "gap W14–W20" — não existe; planilha está em dia</li>
+    <li>Nova <strong>Fase A.0</strong>: solução permanente para pessoas/projetos faltantes via <code>ensurePerson</code>/<code>ensureProject</code> dentro do app — evita cadastro manual em 2027 e além</li>
+  </ul>
+</div>
+<h1>Plano: Consolidação Histórico Planilha → ClickUp + Rollout do App Timesheet</h1>
+
+<h2>Context</h2>
+
+<p>Hoje o controle de alocação de horas do Grupo SAL vive em <strong><code>00_GRUPO-SAL_CONSOLIDADO_ALOCACAO_2026</code></strong> (Google Sheets), alimentado por 4 planilhas-fonte por unidade de negócio (Branding / Comunicação / Conteúdo / CSC). O webapp Timesheet já está pronto e escreve em ClickUp (<code>LISTA_REGISTRO_ALOCACAO</code> em BACK_OFFICE &gt; [ALOCAÇÕES]), mas só será adotado se <strong>toda a visão de 2026</strong> estiver no ClickUp — caso contrário, gestores teriam que olhar dois lugares.</p>
+
+<p><strong>Objetivos:</strong></p>
+<ol>
+<li>Migrar o histórico de 2026 da planilha para o ClickUp num formato compatível com o app.</li>
+<li>Definir o plano de adoção (rollout) para gestores e colaboradores começarem a lançar pelo app a partir de uma semana definida.</li>
+</ol>
+
+<p><strong>Estado de partida (verificado via CSV export em 2026-05-13):</strong></p>
+<ul>
+<li>Planilha tem <strong>1.851 linhas, W01–W20/2026</strong> (W20 = semana corrente, 11–15/05; alguns lançamentos sem <code>horas_realizadas</code> ainda). <strong>Não há gap</strong> — o consolidado está em dia.</li>
+<li><code>LISTA_REGISTRO_ALOCACAO</code> tem <strong>~151 tasks no formato antigo</strong> <code>"Pessoa → Projeto (Sem N)"</code>, incompatíveis com o <code>makeTaskName()</code> do app (<code>src/lib/clickup/entries.js:33</code>) — o app não deduplica essas e criaria duplicatas.</li>
+<li><code>LISTA_PESSOAS</code> está <strong>incompleta</strong> (~5 pessoas cadastradas; planilha tem 37).</li>
+<li><code>LISTA_PROJETOS</code> está razoavelmente populada, mas alguns dos 60 projetos da planilha podem não ter equivalente exato.</li>
+<li><strong>CSV congelado em</strong> <code>docs/00_GRUPO-SAL_CONSOLIDADO_ALOCACAO_2026 - REGISTRO_ALOCACAO_CONSOLIDADO.csv</code> (174 KB) — fonte de verdade para o import.</li>
+</ul>
+
+<p><strong>Decisões já tomadas pelo usuário:</strong></p>
+<ul>
+<li>Apagar as 151 tasks antigas e reimportar tudo do zero a partir da planilha.</li>
+<li><strong>Descartar a coluna <code>CARGO</code></strong> — não cabe no MVP (pode virar custom field depois se virar requisito de relatório).</li>
+<li>Escopo deste plano: <strong>script de import 1x</strong> + <strong>plano de rollout</strong>. Não inclui mudanças no app, dashboard ou governança operacional (ficam para iterações futuras).</li>
+</ul>
+
+<hr/>
+
+<h2>Fase A — Migração de dados (planilha → ClickUp)</h2>
+
+<h3>A.0 — Tornar pessoas/projetos auto-gerenciáveis (pré-requisito permanente)</h3>
+
+<p><strong>Problema permanente:</strong> hoje <code>createEntry()</code> em <code>src/lib/clickup/entries.js:107</code> busca person/project no cache de <code>LISTA_PESSOAS</code>/<code>LISTA_PROJETOS</code> e, se não encontra, <strong>cria a entry mesmo assim mas deixa os relationship fields vazios silenciosamente</strong> (linhas 129–138). Isso significa:</p>
+<ul>
+<li>Hoje: 32 pessoas / 17+ projetos da planilha não estão nas Listas → import vai criar entries sem <code>rel_colaborador</code>/<code>rel_projeto</code></li>
+<li>Em 2027: qualquer projeto novo do ano vai falhar do mesmo jeito, sem aviso. Falha silenciosa que vai acumular.</li>
+</ul>
+
+<p><strong>Solução permanente — auto-criar on demand:</strong></p>
+
+<ol>
+<li>Adicionar em <code>src/lib/clickup/entries.js</code> duas funções públicas:</li>
+</ol>
+<p>   ```js</p>
+<p>   export async function ensurePerson(name)   { /<em> check cache → create in LIST_PEOPLE → cache → return id </em>/ }</p>
+<p>   export async function ensureProject(name)  { /<em> idem para LIST_PROJECTS </em>/ }</p>
+<p>   ```</p>
+<ol>
+<li>Reescrever o bloco de relationship em <code>createEntry()</code> (linhas 129–138) para usar <code>ensurePerson</code>/<code>ensureProject</code> em vez de só <code>personIdCache.get()</code>. Erros de criação <strong>não devem ser silenciados</strong> — devem propagar para a UI mostrar "Erro ao registrar [nome] em LISTA_PESSOAS, tente de novo".</li>
+<li>Mesma garantia em <code>upsertForecast()</code> e em qualquer caminho que crie entry — sempre que um nome aparece, ele existe nas Listas ao final da operação.</li>
+</ol>
+
+<p><strong>Por que dentro do app, e não só no script:</strong></p>
+<ul>
+<li>O app (aba <strong>Planejamento</strong>) é o canal principal pelo qual novos projetos entram em 2026/2027/+. Se a auto-criação só vive no script de import, na virada do ano qualquer projeto novo precisa de cadastro manual em duas Lists antes de poder ser usado — cria fricção e quebra a promessa "o app é a fonte de verdade".</li>
+<li>O script de import e o app <strong>chamam exatamente a mesma função</strong>. Isso elimina a chance de divergência: o que o app faz na sexta-feira é o mesmo que o batch faz na migração.</li>
+</ul>
+
+<p><strong>Trade-off aceito:</strong> typo na UI cria registro permanente. Mitigações no app (já existentes ou a planejar separadamente, <strong>fora do escopo deste plano</strong>): combobox com autocomplete dos nomes existentes; quando o usuário digita algo que tem &gt;85% similaridade com um nome existente, sugerir; botão "renomear" no <code>Directory.jsx</code> para corrigir typo retroativamente.</p>
+
+<p><strong>Arquivos a modificar:</strong></p>
+<ul>
+<li><code>src/lib/clickup/entries.js</code> — adicionar <code>ensurePerson</code>, <code>ensureProject</code>; refatorar <code>createEntry</code>.</li>
+<li><code>src/lib/clickup/lists.js</code> — já tem CRUD de people/projects; reutilizar <code>createPerson</code>/<code>createProject</code> se existirem.</li>
+<li>Sem mudanças na UI nesta fase (próxima fase pega o autocomplete).</li>
+</ul>
+
+<p><strong>Verificação:</strong> após o fix, criar manualmente uma entry no app com um nome de projeto novo (<code>"Projeto Teste 2027"</code>) e confirmar que ele aparece em <code>LISTA_PROJETOS</code> no ClickUp imediatamente.</p>
+
+<hr/>
+
+<h3>A.1 — Pré-trabalho de limpeza</h3>
+
+<p>✅ <strong>Snapshot CSV já existe em</strong> <code>docs/00_GRUPO-SAL_CONSOLIDADO_ALOCACAO_2026 - REGISTRO_ALOCACAO_CONSOLIDADO.csv</code> (1.851 linhas, W01–W20). Antes de rodar o import, mover/copiar para <code>data/historico-2026-snapshot.csv</code> e commitar (assim o snapshot fica congelado e auditável).</p>
+
+<p>Validação automática das 37 pessoas e 60 projetos da planilha contra <code>LISTA_PESSOAS</code> / <code>LISTA_PROJETOS</code> é feita pelo script (passo A.3.2).</p>
+
+<h3>A.2 — Apagar as 151 tasks legadas</h3>
+
+<p>Criar <code>scripts/wipe-registro-alocacao.mjs</code> — pequeno, isolado, com <code>--dry-run</code> por padrão e <code>--confirm</code> para executar de fato.</p>
+
+<ul>
+<li>Pagina <code>/list/{LIST_ENTRIES}/task?include_closed=true&amp;page=N</code> até esgotar.</li>
+<li>Filtra tasks cujo nome <strong>NÃO</strong> segue o regex <code>^\d{4}-W\d{2} \| .+ \| .+$</code> (mantém a 1 task do Juarez no formato novo, se quiser; ou apaga tudo — preferível).</li>
+<li><code>DELETE /task/{id}</code> com 250 ms entre chamadas (folga sobre 100 req/min do plano Free).</li>
+<li>Loga cada exclusão. Reusa o boilerplate de <code>scripts/populate-relationships.mjs</code> (auth, retry 429).</li>
+</ul>
+
+<h3>A.3 — Script de import principal</h3>
+
+<p><strong>Arquivo:</strong> <code>scripts/import-historico-2026.mjs</code></p>
+
+<p><strong>Entrada:</strong> <code>data/historico-2026-snapshot.csv</code> (header real: <code>DATA_ START, DATA_ END, SEMANA, MÊS, PROJETO, UNIDADE_DE_NEGOCIO, PESSOA, CARGO, TIPO, Nº_HORAS_PREVISTO, Nº_HORAS_REALIZADO</code> — note o espaço extra em <code>DATA_ START</code>/<code>DATA_ END</code>).</p>
+
+<p><strong>Lógica (em ordem):</strong></p>
+
+<ol>
+<li><strong>Parse + normalização:</strong></li>
+<li><code>Year</code> = ano de <code>DATA_START</code> (cuidado: W01 começa em 29/12/2025 — usar o ano de <code>DATA_END</code> ou simplesmente forçar 2026 para o consolidado, já que a planilha só cobre o ciclo 2026).</li>
+<li><code>Hours_Forecast</code> = <code>Nº_HORAS_PREVISTO</code>; <code>Hours_Consolidated</code> = <code>Nº_HORAS_REALIZADO</code> (ambos integers).</li>
+<li>Ignorar <code>CARGO</code> e <code>TIPO</code>.</li>
+</ol>
+
+<ol>
+<li><strong>Auto-criação de pessoas/projetos faltantes</strong> (lógica compartilhada com o app — ver Fase A.0):</li>
+<li>O script chama a mesma função <code>ensurePerson(name)</code> / <code>ensureProject(name)</code> que o app usa em <code>createEntry</code>. Auto-cria no ClickUp se não existir, com cache de sessão.</li>
+<li><strong>Diferença do script vs. app:</strong> o script roda em <strong>modo <code>--strict-confirm</code></strong> — antes de auto-criar, faz dry-run que imprime todas as pessoas/projetos novos que seriam criados, e exige <code>--confirm</code> para prosseguir. Isso evita typo na planilha virar registro permanente.</li>
+<li>Sem flag, o comportamento default é o do app: auto-criar silenciosamente. Para uso humano interativo do app isso é o certo; para batch import é arriscado, daí o gate.</li>
+</ol>
+
+<ol>
+<li><strong>Criação das entries (1.851 chamadas):</strong></li>
+<li>Para cada linha do CSV, montar payload <strong>idêntico ao <code>createEntry()</code> de <code>src/lib/clickup/entries.js:107</code></strong>, mas setando <strong>tanto <code>horas_previstas</code> quanto <code>horas_realizadas</code></strong> (na planilha, em geral previsto == realizado; quando <code>horas_realizadas</code> está vazia — semana corrente — passar <code>null</code>).</li>
+<li><code>name = makeTaskName(Year, Week, Person, Project)</code> — replicar a função.</li>
+<li><code>centro_de_custo</code> → <code>ccNameToId()</code> (já existe a tabela hardcoded em <code>fields.js</code>, replicar no script). <strong>Atenção:</strong> CSC apareceu na planilha (2 linhas) e já está no dropdown — confirmar mapeamento.</li>
+<li>Após cada criação, popular <code>rel_colaborador</code> e <code>rel_projeto</code> via <code>POST /task/{id}/field/{fieldId}</code> no formato <code>{ value: { add: [linkedTaskId] } }</code> (ver memo <code>feedback_clickup_relationship_fields</code>).</li>
+<li>Throttle: <strong>200 ms entre tasks</strong> + <strong>150 ms entre os 2 relationship updates</strong> → ~600 ms por linha → <strong>~18 min para 1.851 linhas</strong>.</li>
+<li>Tratamento de 429 já vem do helper.</li>
+</ol>
+
+<ol>
+<li><strong>Idempotência:</strong></li>
+<li>Antes de criar cada task, manter <code>Set&lt;taskName&gt;</code> carregado no início (de fato — depois do wipe, deveria estar vazio).</li>
+<li>Se <code>taskName</code> já existir, <strong>pular</strong> (não atualizar). Permite re-rodar o script com segurança.</li>
+</ol>
+
+<ol>
+<li><strong>Logs e saída:</strong></li>
+<li>Imprimir contador <code>[N/1851]</code> por linha.</li>
+<li>Ao final: total criadas, total puladas, total erros, e gravar <code>data/import-log-{timestamp}.json</code> com cada (taskName → taskId | erro).</li>
+</ol>
+
+<h3>A.4 — Verificação pós-import</h3>
+
+<ul>
+<li><code>clickup_filter_tasks</code> na list, <code>include_closed=true</code>, confirmar <strong>count == 1851</strong> (assumindo nenhum erro).</li>
+<li>Spot-check de 3 linhas (W01, W10, W20) abrindo a task no ClickUp e conferindo todos os 9 campos contra a planilha.</li>
+<li>Abrir o app, ir para uma semana já importada, conferir que a UI mostra os dados corretamente.</li>
+</ul>
+
+<p><strong>Arquivos críticos a referenciar:</strong></p>
+<ul>
+<li><code>src/lib/clickup/entries.js:33,107</code> (makeTaskName e createEntry — replicar shape exatamente)</li>
+<li><code>src/lib/clickup/fields.js:7,21</code> (FIELDS e CENTRO_DE_CUSTO_OPTIONS — copiar para o script)</li>
+<li><code>scripts/populate-relationships.mjs</code> (boilerplate de auth/retry)</li>
+</ul>
+
+<hr/>
+
+<h2>Fase B — Rollout para a empresa</h2>
+
+<p>A migração cobre <strong>W01–W20 (todo o ano de 2026 até hoje)</strong>. Não há gap — o rollout pode começar na próxima semana sem reconstrução retroativa.</p>
+
+<h3>B.1 — Semana de corte</h3>
+
+<p><strong>Proposta:</strong> definir <strong>W21 (18–22/maio/2026)</strong> como semana de corte — a partir dela, o controle é feito <strong>exclusivamente no app</strong>. Toda a base histórica de 2026 (W01–W20) já estará no ClickUp via Fase A.</p>
+
+<p>A W20 (corrente) fica como semana de transição: foi lançada na planilha, vai estar no ClickUp via import, e o app já pode ser usado para validar/ajustar as <code>horas_realizadas</code> dela na sexta.</p>
+
+<h3>B.2 — Anúncio interno (1 semana antes do corte)</h3>
+
+<p>E-mail/Slack/Notion da diretoria, contendo:</p>
+<ol>
+<li><strong>Por quê:</strong> o controle de alocação agora é no app, pra dar visibilidade direta dos gestores aos dados sem depender de planilha consolidada.</li>
+<li><strong>O que muda:</strong></li>
+<li><strong>Gestores</strong> (já existentes na planilha): aba <strong>Planejamento</strong> do app → na <strong>segunda-feira</strong> lançam previsão de horas das suas equipes para a semana.</li>
+<li><strong>Colaboradores</strong>: aba <strong>Timesheet</strong> → na <strong>sexta-feira</strong> confirmam horas realizadas (ou ajustam se variou da previsão).</li>
+<li><strong>A partir de quando:</strong> semana de corte (ex: 18/05).</li>
+<li><strong>Onde acessar:</strong> <code>https://gruposal.github.io/timesheet</code>.</li>
+<li><strong>Como configurar:</strong> colar token ClickUp pessoal nas Configurações (⚙) do app — link para tutorial curto.</li>
+</ol>
+
+<h3>B.3 — Material de apoio (criar antes do anúncio)</h3>
+
+<ul>
+<li><strong>GIF/vídeo curto (~2 min)</strong> mostrando: login (config do token) → aba Planejamento (gestor lançando) → aba Timesheet (colaborador confirmando).</li>
+<li><strong>Página de FAQ no Notion / Google Doc:</strong></li>
+<li>"Como gero meu token ClickUp"</li>
+<li>"Esqueci de lançar a semana passada — o que fazer?"</li>
+<li>"Meu projeto não aparece na lista — como cadastrar?"</li>
+<li>"Cap de 40h — o que acontece se eu exceder?"</li>
+</ul>
+
+<h3>B.4 — Treinamento ao vivo (~30 min)</h3>
+
+<p>Uma única sessão pelo Google Meet, gravada. Apresenta o app, mostra fluxo gestor + colaborador, abre para Q&amp;A. Convocar:</p>
+<ul>
+<li>Todos os gestores (preferência: presença obrigatória)</li>
+<li>1–2 representantes por unidade (vão virar referência local)</li>
+<li>Demais colaboradores: opcional (assistem a gravação)</li>
+</ul>
+
+<h3>B.5 — Acompanhamento das 2 primeiras semanas</h3>
+
+<ul>
+<li>Toda <strong>sexta às 17h</strong>, verificar via dashboard ou query MCP:</li>
+<li>Quantas pessoas têm &lt;40h lançadas naquela semana?</li>
+<li>Quantos gestores não preencheram a previsão da semana seguinte?</li>
+<li>Cobrar diretamente os faltantes pelos canais habituais.</li>
+</ul>
+
+<h3>B.6 — Critério de sucesso (definir antes do go-live)</h3>
+
+<ul>
+<li><strong>Semana 1 pós-corte:</strong> ≥80% das pessoas com 40h lançadas até segunda às 10h.</li>
+<li><strong>Semana 4:</strong> ≥95%, e planilha consolidada Google <strong>desativada</strong> (read-only / arquivada).</li>
+</ul>
+
+<hr/>
+
+<h2>Verificação end-to-end</h2>
+
+<ol>
+<li><strong>Após Fase A:</strong></li>
+</ol>
+<p>   ```bash</p>
+<p>   # Conferir contagem</p>
+<p>   # via MCP: clickup_filter_tasks list_ids=["901326824645"] include_closed=true</p>
+<p>   # esperado: 875 tasks (ou 876 se mantiver a do Juarez)</p>
+<p>   ```</p>
+<p>   Spot-check abrindo 3 tasks aleatórias no ClickUp: todos os 9 custom fields preenchidos + 2 relationships ligadas.</p>
+
+<ol>
+<li><strong>No app (<code>npm run dev</code>):</strong></li>
+<li>Configurar token, navegar para <code>2026-W05</code> → conferir que pessoas/projetos da semana aparecem com horas certas.</li>
+<li>Editar uma entrada, salvar, conferir no ClickUp que atualizou em vez de duplicar.</li>
+</ol>
+
+<ol>
+<li><strong>Após Fase B (rollout):</strong></li>
+<li>Dashboard semanal (Domingo): comparar previsão vs. realizada para a semana corrente.</li>
+<li>Verificar critério de sucesso (B.6) por 4 semanas seguidas.</li>
+</ol>
+
+<hr/>
+
+<h2>Riscos e mitigações</h2>
+
+<table>
+<thead><tr><th>Risco</th><th>Mitigação</th></tr></thead><tbody>
+<tr><td>Planilha atualizada <strong>durante</strong> a migração</td><td>Trabalhar com snapshot CSV congelado (A.1). Reimport pode ser repetido se necessário (script é idempotente).</td></tr>
+<tr><td>Projetos com nomes ligeiramente diferentes entre planilha e LISTA_PROJETOS</td><td>Script pausa em A.3.2 e exige confirmação explícita antes de criar novos. Permite normalização manual prévia se preferir.</td></tr>
+<tr><td>Plano Free do ClickUp (100 req/min) bloqueia o import</td><td>200 ms entre tasks + retry automático em 429. ~18 min total — bem dentro do limite.</td></tr>
+<tr><td>Usuários não adotam o app pós-rollout</td><td>Critério de sucesso (B.6) força acompanhamento. Treinamento ao vivo + cobrança direta nas 2 primeiras semanas.</td></tr>
+<tr><td>MCP do Google Drive lê versão cacheada (caso já visto)</td><td>CSV manual exportado é a fonte de verdade. Para qualquer auditoria pós-import, comparar contra o CSV congelado, não contra o MCP read.</td></tr>
+</tbody></table>
+
+<div class="footer">
+  Documento gerado a partir do plano interno. Para dúvidas: juarez@gruposal.com.br
+</div>
+</div>
+</body></html>

@@ -30,28 +30,70 @@ if (typeof window !== "undefined" && !window.__TS_TEST__) {
   console.log("[Timesheet] self-tests OK");
 }
 
+// Normaliza para comparação: remove acentos + lowercase.
+// Mesma lógica de src/lib/clickup/entries.js — garante que "Edilson Junior" encontra "Edilson Júnior".
+function normalizeMatch(s) {
+  return (s || '').trim().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 // ─── Combobox ────────────────────────────────────────────────────────────────
 function Combobox({ value, onChange, options, placeholder, className }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value ?? "");
   const [rect, setRect] = useState(null);
+  const [highlight, setHighlight] = useState(0);   // índice do item destacado p/ teclado
   const inputRef = useRef(null);
   const listRef = useRef(null);
+  const itemRefs = useRef([]);
 
   useEffect(() => { setQuery(value ?? ""); }, [value]);
 
+  // Reposiciona dropdown quando a página rola, MAS sem fechar se o scroll for dentro da própria lista.
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener("scroll", close, true);
-    return () => window.removeEventListener("scroll", close, true);
+    const onScroll = (e) => {
+      // Scroll de dentro do dropdown → ignora (deixa a lista rolar normalmente)
+      if (listRef.current && listRef.current.contains(e.target)) return;
+      // Scroll da página → reposiciona o dropdown para acompanhar o input
+      const r = inputRef.current?.getBoundingClientRect();
+      if (r) setRect(r);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
   }, [open]);
 
+  // Dedupa opções (a Lista de Projetos pode ter nomes repetidos, ex: "Gestão CSC" 2x).
+  const uniqueOptions = useMemo(() => {
+    const seen = new Set();
+    return options.filter(o => {
+      const k = normalizeMatch(o);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [options]);
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter(o => o.toLowerCase().includes(q));
-  }, [query, options]);
+    const q = normalizeMatch(query);
+    if (!q) return uniqueOptions;
+    return uniqueOptions.filter(o => normalizeMatch(o).includes(q));
+  }, [query, uniqueOptions]);
+
+  // Reseta highlight pro topo quando lista muda; mantém na opção atual se houver
+  useEffect(() => {
+    if (!open) return;
+    const cur = filtered.findIndex(o => o === value);
+    setHighlight(cur >= 0 ? cur : 0);
+  }, [open, filtered, value]);
+
+  // Auto-scroll do item destacado pra dentro do viewport
+  useEffect(() => {
+    if (!open) return;
+    const el = itemRefs.current[highlight];
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlight, open]);
 
   function openDropdown() {
     const r = inputRef.current?.getBoundingClientRect();
@@ -61,9 +103,36 @@ function Combobox({ value, onChange, options, placeholder, className }) {
 
   function select(opt) { setQuery(opt); onChange(opt); setOpen(false); }
 
+  function handleKeyDown(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!open) { openDropdown(); return; }
+      setHighlight(h => Math.min(filtered.length - 1, h + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) { openDropdown(); return; }
+      setHighlight(h => Math.max(0, h - 1));
+    } else if (e.key === 'Enter') {
+      if (open && filtered[highlight]) {
+        e.preventDefault();
+        select(filtered[highlight]);
+      }
+    } else if (e.key === 'Escape') {
+      if (open) { e.preventDefault(); setOpen(false); }
+    } else if (e.key === 'Home' && open) {
+      e.preventDefault();
+      setHighlight(0);
+    } else if (e.key === 'End' && open) {
+      e.preventDefault();
+      setHighlight(filtered.length - 1);
+    }
+  }
+
   function handleBlur(e) {
     if (listRef.current?.contains(e.relatedTarget)) return;
-    const match = options.find(o => o.toLowerCase() === query.trim().toLowerCase());
+    // Match insensível a acentos: "Edilson Junior" casa com "Edilson Júnior" e usa o nome canônico da Lista.
+    const q = normalizeMatch(query);
+    const match = options.find(o => normalizeMatch(o) === q);
     if (match) { onChange(match); setQuery(match); }
     else { setQuery(value ?? ""); }
     setOpen(false);
@@ -72,13 +141,15 @@ function Combobox({ value, onChange, options, placeholder, className }) {
   const dropStyle = useMemo(() => {
     if (!rect) return {};
     const spaceBelow = window.innerHeight - rect.bottom;
-    const maxH = 208;
-    const top = spaceBelow >= maxH + 8 ? rect.bottom + 4 : rect.top - Math.min(maxH, filtered.length * 44) - 4;
+    const spaceAbove = rect.top;
+    // Dropdown grande quando há espaço — facilita escanear listas longas (60+ projetos)
+    const maxH = Math.min(360, Math.max(spaceBelow, spaceAbove) - 16);
+    const top = spaceBelow >= maxH + 8 ? rect.bottom + 4 : rect.top - maxH - 4;
     const isMobile = window.innerWidth < 640;
     return isMobile
-      ? { position: "fixed", top, left: 12, right: 12, zIndex: 9999 }
-      : { position: "fixed", top, left: rect.left, width: rect.width, zIndex: 9999 };
-  }, [rect, filtered.length]);
+      ? { position: "fixed", top, left: 12, right: 12, maxHeight: maxH, zIndex: 9999 }
+      : { position: "fixed", top, left: rect.left, width: Math.max(rect.width, 320), maxHeight: maxH, zIndex: 9999 };
+  }, [rect]);
 
   return (
     <>
@@ -88,30 +159,105 @@ function Combobox({ value, onChange, options, placeholder, className }) {
         onChange={e => { setQuery(e.target.value); openDropdown(); }}
         onFocus={openDropdown}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={className}
         autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="combobox-listbox"
       />
       {open && filtered.length > 0 && rect && (
-        <ul
+        <div
           ref={listRef}
           style={dropStyle}
-          className="max-h-52 overflow-y-auto rounded-2xl border border-black/[0.08] dark:border-white/[0.1] bg-white/95 dark:bg-[#2C2C2E]/95 backdrop-blur-xl shadow-2xl text-[15px]"
+          className="flex flex-col rounded-2xl border border-black/[0.12] dark:border-white/[0.15] bg-white dark:bg-[#2C2C2E] shadow-2xl text-[15px] overflow-hidden"
         >
-          {filtered.map(opt => (
-            <li
-              key={opt}
-              tabIndex={-1}
-              onMouseDown={e => { e.preventDefault(); select(opt); }}
-              onTouchEnd={e => { e.preventDefault(); select(opt); }}
-              className={`px-4 py-3 cursor-pointer border-b border-black/[0.04] dark:border-white/[0.04] last:border-0 active:bg-[#F2F2F7] dark:active:bg-[#3A3A3C] ${opt === value ? "font-semibold text-[#007AFF] dark:text-[#0A84FF]" : "text-black dark:text-white"}`}
-            >
-              {opt}
-            </li>
-          ))}
-        </ul>
+          <div className="flex items-center justify-between px-4 py-2 text-[11px] uppercase tracking-wider text-[#8E8E93] border-b border-black/[0.06] dark:border-white/[0.08] bg-[#F8F8FA] dark:bg-[#1C1C1E] shrink-0">
+            <span>{filtered.length} {filtered.length === 1 ? 'opção' : 'opções'}</span>
+            <span className="hidden sm:inline">↑↓ navegar · ⏎ selecionar · esc fechar</span>
+          </div>
+          <ul
+            id="combobox-listbox"
+            role="listbox"
+            className="overflow-y-auto flex-1 overscroll-contain"
+          >
+            {filtered.map((opt, i) => {
+              const isHighlighted = i === highlight;
+              const isSelected    = opt === value;
+              return (
+                <li
+                  key={opt}
+                  ref={el => (itemRefs.current[i] = el)}
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={-1}
+                  onMouseEnter={() => setHighlight(i)}
+                  onMouseDown={e => { e.preventDefault(); select(opt); }}
+                  onTouchEnd={e => { e.preventDefault(); select(opt); }}
+                  className={[
+                    'px-4 py-3 cursor-pointer border-b border-black/[0.04] dark:border-white/[0.04] last:border-0',
+                    isHighlighted ? 'bg-[#F2F2F7] dark:bg-[#3A3A3C]' : '',
+                    isSelected ? 'font-semibold text-[#007AFF] dark:text-[#0A84FF]' : 'text-black dark:text-white',
+                  ].join(' ')}
+                >
+                  {opt}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </>
+  );
+}
+
+// ─── HoursInput: input numérico com ↑/↓ explícitos e steppers visíveis ───────
+function HoursInput({ value, onChange, placeholder = '0', className = '', min = 0, max = 40, step = 1 }) {
+  const inputRef = useRef(null);
+  const stepBy = (delta) => {
+    const cur = value === '' || value == null ? 0 : Number(value);
+    const next = Math.max(min, Math.min(max, cur + delta));
+    onChange(String(next));
+  };
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowUp')   { e.preventDefault(); stepBy(+step); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); stepBy(-step); }
+    if (e.key === 'PageUp')    { e.preventDefault(); stepBy(+4); }   // bump 4h (meio dia)
+    if (e.key === 'PageDown')  { e.preventDefault(); stepBy(-4); }
+  };
+  // Mantém o foco no input ao clicar nos botões (assim ↑↓ continua funcionando depois)
+  const press = (delta) => (e) => {
+    e.preventDefault();
+    stepBy(delta);
+    inputRef.current?.focus();
+  };
+  return (
+    <div className="relative inline-flex items-stretch w-full">
+      <input
+        ref={inputRef}
+        type="number" inputMode="numeric" min={min} max={max} step={step}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        className={`${className} pr-8`}
+      />
+      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col">
+        <button
+          type="button" tabIndex={-1}
+          onMouseDown={press(+step)}
+          aria-label="Aumentar"
+          className="h-3.5 w-6 flex items-center justify-center text-[10px] leading-none text-[#8E8E93] hover:text-[#007AFF] dark:hover:text-[#0A84FF] hover:bg-black/[0.05] dark:hover:bg-white/[0.05] rounded-t"
+        >▲</button>
+        <button
+          type="button" tabIndex={-1}
+          onMouseDown={press(-step)}
+          aria-label="Diminuir"
+          className="h-3.5 w-6 flex items-center justify-center text-[10px] leading-none text-[#8E8E93] hover:text-[#007AFF] dark:hover:text-[#0A84FF] hover:bg-black/[0.05] dark:hover:bg-white/[0.05] rounded-b"
+        >▼</button>
+      </div>
+    </div>
   );
 }
 
@@ -136,6 +282,38 @@ function WeekStatus({ entries }) {
   );
 }
 
+// ─── Top progress bar (indicador global de loading) ──────────────────────────
+function TopProgressBar({ visible, label }) {
+  return (
+    <div
+      className={`fixed top-0 left-0 right-0 z-[10000] pointer-events-none transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
+      aria-hidden={!visible}
+    >
+      <div className="h-[3px] bg-[#007AFF]/15 dark:bg-[#0A84FF]/20 overflow-hidden">
+        <div className="h-full w-1/3 bg-[#007AFF] dark:bg-[#0A84FF] tp-indeterminate" />
+      </div>
+      {label && (
+        <div className="absolute right-3 top-2 text-[11px] text-[#8E8E93] bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur px-2 py-1 rounded-full border border-black/[0.06] dark:border-white/[0.08] shadow-sm pointer-events-none">
+          {label}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Skeleton row (linha placeholder enquanto carrega) ───────────────────────
+function SkeletonRow({ cells = 5 }) {
+  return (
+    <tr className="animate-pulse">
+      {Array.from({ length: cells }).map((_, i) => (
+        <td key={i} className="px-3 py-3">
+          <div className="h-5 rounded bg-black/[0.06] dark:bg-white/[0.08]" />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 // ─── Desvio badge ─────────────────────────────────────────────────────────────
 function Desvio({ forecast, consolidated }) {
   if (consolidated == null || consolidated === "") return <span className="text-[#8E8E93]">—</span>;
@@ -156,8 +334,9 @@ export default function TimesheetApp() {
     ? safeJsonParse(localStorage.getItem(PERSIST_KEY) || "{}", {})
     : {};
 
-  const [selectedYear, setSelectedYear]   = useState(Number(persisted.selectedYear) || today.getFullYear());
-  const [selectedWeek, setSelectedWeek]   = useState(Number(persisted.selectedWeek) || getISOWeek(today));
+  // Ano/semana sempre começam na corrente — persisted é ignorado intencionalmente.
+  const [selectedYear, setSelectedYear]   = useState(today.getFullYear());
+  const [selectedWeek, setSelectedWeek]   = useState(getISOWeek(today));
   const [person, setPerson]               = useState(persisted.person || "");
   const { start, end } = useMemo(() => weekStartEnd(selectedYear, selectedWeek), [selectedYear, selectedWeek]);
 
@@ -168,8 +347,12 @@ export default function TimesheetApp() {
   const [db, setDb]                         = useState([]);
   const [dbFilter, setDbFilter]             = useState("");
   const [dbOpen, setDbOpen]                 = useState(false);
+  // Mapa project name → CC mais comum, alimentado pelo histórico carregado.
+  // Permite auto-preencher Centro de Custo ao selecionar projeto.
+  const [projectToCc, setProjectToCc]       = useState({});
   const [saving, setSaving]                 = useState(false);
   const [loadingWeek, setLoadingWeek]       = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false); // carga em background do ano (para mapa CC)
   const [previewSort, setPreviewSort]       = useState({ field: "ISO_Week", dir: "desc" });
   const [previewPage, setPreviewPage]       = useState(1);
   const [previewPageSize]                   = useState(15);
@@ -252,9 +435,57 @@ export default function TimesheetApp() {
   }
   useEffect(() => { loadLists(); }, []);
 
+  // Constrói/atualiza o mapa project → CC a partir das entries carregadas.
+  // Para cada projeto, escolhe o CC mais frequente no histórico (vota por contagem).
+  function mergeRowsIntoCcMap(rows) {
+    if (!rows?.length) return;
+    setProjectToCc(prev => {
+      // Conta votos: { project: { cc: count } }
+      const votes = {};
+      // Re-conta a partir do map atual (não temos histórico de votos individuais)
+      // — assume cada projeto valia ≥1 voto pra seu cc atual.
+      Object.entries(prev).forEach(([p, cc]) => { votes[p] = { [cc]: 1 }; });
+      rows.forEach(r => {
+        if (!r.Project || !r.Business_Unit) return;
+        votes[r.Project] ??= {};
+        votes[r.Project][r.Business_Unit] = (votes[r.Project][r.Business_Unit] || 0) + 1;
+      });
+      const next = { ...prev };
+      Object.entries(votes).forEach(([proj, counts]) => {
+        const winner = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+        next[proj] = winner;
+      });
+      return next;
+    });
+  }
+
+  // Carga inicial em background: puxa o ano todo pra ter mapa rico já no primeiro project select.
+  // Não bloqueia a UI; usa a janela atual enquanto carrega.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingHistory(true);
+        const rows = await loadLastYear(today.getFullYear());
+        if (!cancelled) mergeRowsIntoCcMap(rows);
+      } catch (e) { console.warn("loadLastYear (cc map):", e); }
+      finally { if (!cancelled) setLoadingHistory(false); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (people.length && person && !people.includes(person)) setPerson("");
   }, [people]);
+
+  // Auto-carrega dados do ClickUp quando pessoa, ano ou semana mudam (apenas na aba Timesheet).
+  // Silent = não abre o painel de DB nem mostra toast — UX de "abriu/selecionou, já tá lá".
+  useEffect(() => {
+    if (view !== "timesheet" || !person) return;
+    loadFromClickUp({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [person, selectedYear, selectedWeek, view]);
 
   function prevWeek() {
     if (selectedWeek > 1) setSelectedWeek(w => w - 1);
@@ -284,6 +515,10 @@ export default function TimesheetApp() {
         }
         next[field] = n;
       } else { next[field] = value; }
+      // Auto-preenche CC quando seleciona projeto, se o mapa souber.
+      if (field === "project" && value && projectToCc[value]) {
+        next.businessUnit = projectToCc[value];
+      }
       return next;
     }));
   }
@@ -320,7 +555,12 @@ export default function TimesheetApp() {
             if (otherTotal + n > 40) { n = Math.max(0, 40 - otherTotal); showToast(`Cap 40h atingido${g.person ? ` — ${g.person}` : ""}.`); }
             return { ...r, hours_forecast: n };
           }
-          return { ...r, [field]: value };
+          const next = { ...r, [field]: value };
+          // Auto-preenche CC quando seleciona projeto, se o mapa souber.
+          if (field === "project" && value && projectToCc[value]) {
+            next.businessUnit = projectToCc[value];
+          }
+          return next;
         }),
       };
     }));
@@ -372,12 +612,17 @@ export default function TimesheetApp() {
     finally { setSaving(false); }
   }
 
-  async function loadFromClickUp() {
-    if (!person) { showToast("Selecione a pessoa primeiro."); return; }
+  async function loadFromClickUp({ silent = false } = {}) {
+    if (!person) {
+      if (!silent) showToast("Selecione a pessoa primeiro.");
+      return;
+    }
     try {
       setLoadingWeek(true);
       const rows = await loadForWeek(selectedYear, selectedWeek);
-      setDb(rows); setPreviewPage(1); setDbOpen(true);
+      setDb(rows); setPreviewPage(1);
+      mergeRowsIntoCcMap(rows);
+      if (!silent) setDbOpen(true);
       const mine = rows.filter(r => r.Person === person);
       if (mine.length) {
         setEntries(mine.map(r => ({
@@ -385,9 +630,12 @@ export default function TimesheetApp() {
           hours_forecast: r.Hours_Forecast ?? "",
           hours_consolidated: r.Hours_Consolidated ?? "",
         })));
+      } else {
+        // Pessoa selecionada mas sem dados na semana — limpa para não mostrar entries de outra pessoa
+        setEntries([blankEntry()]);
       }
-      showToast(`${rows.length} registro${rows.length !== 1 ? "s" : ""} carregado${rows.length !== 1 ? "s" : ""}.`);
-    } catch (e) { console.warn(e); showToast("Erro ao carregar."); }
+      if (!silent) showToast(`${rows.length} registro${rows.length !== 1 ? "s" : ""} carregado${rows.length !== 1 ? "s" : ""}.`);
+    } catch (e) { console.warn(e); if (!silent) showToast("Erro ao carregar."); }
     finally { setLoadingWeek(false); }
   }
 
@@ -479,8 +727,14 @@ export default function TimesheetApp() {
     { k: "dashboard", label: "Visão Geral",  icon: "📊" },
   ];
 
+  const loadingLabel = saving ? 'Salvando…'
+    : loadingWeek ? 'Carregando semana…'
+    : loadingHistory ? 'Atualizando histórico…'
+    : null;
+
   return (
     <div className={bg}>
+      <TopProgressBar visible={!!loadingLabel} label={loadingLabel} />
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 backdrop-blur-2xl bg-white/80 dark:bg-black/80 border-b border-black/[0.08] dark:border-white/[0.08]">
@@ -610,7 +864,14 @@ export default function TimesheetApp() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
-                  {entries.map(e => (
+                  {/* Skeleton enquanto auto-load roda e entries ainda estão vazias */}
+                  {loadingWeek && !entries.some(e => e.project || e.hours_forecast || e.hours_consolidated) ? (
+                    <>
+                      <SkeletonRow cells={6} />
+                      <SkeletonRow cells={6} />
+                      <SkeletonRow cells={6} />
+                    </>
+                  ) : entries.map(e => (
                     <tr key={e.id} className="group">
                       <td className={td}>
                         <select value={e.businessUnit} onChange={ev => updateEntry(e.id, "businessUnit", ev.target.value)} className={inputCls}>
@@ -627,18 +888,20 @@ export default function TimesheetApp() {
                         />
                       </td>
                       <td className={`${td} text-center`}>
-                        <input type="number" min={0} max={40} step={1}
+                        <HoursInput
                           value={e.hours_forecast}
-                          onChange={ev => updateEntry(e.id, "hours_forecast", ev.target.value)}
+                          onChange={v => updateEntry(e.id, "hours_forecast", v)}
                           placeholder="0"
-                          className={`${inputCls} text-center tabular-nums`} />
+                          className={`${inputCls} text-center tabular-nums`}
+                        />
                       </td>
                       <td className={`${td} text-center`}>
-                        <input type="number" min={0} max={40} step={1}
+                        <HoursInput
                           value={e.hours_consolidated}
-                          onChange={ev => updateEntry(e.id, "hours_consolidated", ev.target.value)}
+                          onChange={v => updateEntry(e.id, "hours_consolidated", v)}
                           placeholder="—"
-                          className={`${inputCls} text-center tabular-nums`} />
+                          className={`${inputCls} text-center tabular-nums`}
+                        />
                       </td>
                       <td className={`${td} text-center`}>
                         <Desvio forecast={e.hours_forecast} consolidated={e.hours_consolidated} />
@@ -783,9 +1046,9 @@ export default function TimesheetApp() {
                             />
                           </td>
                           <td className={`${td} text-center`}>
-                            <input type="number" min={0} max={40} step={1}
+                            <HoursInput
                               value={r.hours_forecast}
-                              onChange={ev => updatePlanRow(g.id, r.id, "hours_forecast", ev.target.value)}
+                              onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)}
                               placeholder="0"
                               className={`${inputCls} text-center tabular-nums`}
                             />
@@ -919,8 +1182,8 @@ export default function TimesheetApp() {
                                     {bus.map(b => <option key={b} value={b}>{b}</option>)}
                                   </select>
                                 </td>
-                                <td className={td}><input type="number" min={0} max={40} className={`${inputCls} w-16 text-center`} value={editingValues.Hours_Forecast ?? ""} onChange={e => changeEditing("Hours_Forecast", e.target.value)} /></td>
-                                <td className={td}><input type="number" min={0} max={40} className={`${inputCls} w-16 text-center`} value={editingValues.Hours_Consolidated ?? ""} onChange={e => changeEditing("Hours_Consolidated", e.target.value)} /></td>
+                                <td className={td}><HoursInput value={editingValues.Hours_Forecast ?? ""} onChange={v => changeEditing("Hours_Forecast", v)} className={`${inputCls} w-16 text-center`} /></td>
+                                <td className={td}><HoursInput value={editingValues.Hours_Consolidated ?? ""} onChange={v => changeEditing("Hours_Consolidated", v)} className={`${inputCls} w-16 text-center`} /></td>
                                 <td className={td} />
                                 <td className={td}>
                                   <div className="flex gap-2">
