@@ -353,6 +353,9 @@ export default function TimesheetApp() {
   const [saving, setSaving]                 = useState(false);
   const [loadingWeek, setLoadingWeek]       = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false); // carga em background do ano (para mapa CC)
+  // Indica o que está em `db` agora: 'empty', 'year-2026', 'week-2026-W14' etc.
+  // Permite saber se o Dashboard precisa recarregar ou pode reusar.
+  const [dbScope, setDbScope] = useState('empty');
   const [previewSort, setPreviewSort]       = useState({ field: "ISO_Week", dir: "desc" });
   const [previewPage, setPreviewPage]       = useState(1);
   const [previewPageSize]                   = useState(15);
@@ -426,11 +429,28 @@ export default function TimesheetApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Metadados dos projetos (Cliente, CC, Categoria/Interno). Usado pelo Dashboard.
+  const [projectMeta, setProjectMeta] = useState({}); // map { projectName → { cliente, centroCusto, categoria, formato, isInterno } }
+
   async function loadLists() {
     try {
-      const [ppl, projs] = await Promise.all([cuPeople.loadAll(), cuProjects.loadAll()]);
+      const [ppl, projsMeta] = await Promise.all([cuPeople.loadAll(), cuProjects.loadAllWithMeta()]);
       if (ppl.length) setPeople(ppl.map(p => p.name));
-      if (projs.length) setProjects(projs.map(p => p.name));
+      if (projsMeta.length) {
+        setProjects(projsMeta.map(p => p.name));
+        const meta = {};
+        for (const p of projsMeta) meta[p.name] = p;
+        setProjectMeta(meta);
+        // Semeia o mapa projeto → CC com a fonte autoritativa (LISTA_PROJETOS),
+        // antes que o loadLastYear venha por cima com a votação.
+        setProjectToCc(prev => {
+          const next = { ...prev };
+          for (const p of projsMeta) {
+            if (p.centroCusto && !next[p.name]) next[p.name] = p.centroCusto;
+          }
+          return next;
+        });
+      }
     } catch (e) { console.warn("loadLists:", e); }
   }
   useEffect(() => { loadLists(); }, []);
@@ -459,21 +479,50 @@ export default function TimesheetApp() {
     });
   }
 
-  // Carga inicial em background: puxa o ano todo pra ter mapa rico já no primeiro project select.
-  // Não bloqueia a UI; usa a janela atual enquanto carrega.
+  // Carga inicial em background: puxa o ano todo pra ter mapa rico já no primeiro project select
+  // E também alimenta o `db` para o Dashboard funcionar sem clique manual.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setLoadingHistory(true);
-        const rows = await loadLastYear(today.getFullYear());
-        if (!cancelled) mergeRowsIntoCcMap(rows);
+        const yr = today.getFullYear();
+        const rows = await loadLastYear(yr);
+        if (cancelled) return;
+        mergeRowsIntoCcMap(rows);
+        // Só seta o db se nada relevante já foi carregado (evita sobrescrever uma semana aberta)
+        if (dbScope === 'empty') {
+          setDb(rows);
+          setDbScope(`year-${yr}`);
+        }
       } catch (e) { console.warn("loadLastYear (cc map):", e); }
       finally { if (!cancelled) setLoadingHistory(false); }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Quando entra na aba Dashboard, garante que o ano corrente está em `db`.
+  // Se `db` representa só uma semana (porque o user veio do Timesheet), recarrega o ano.
+  useEffect(() => {
+    if (view !== 'dashboard') return;
+    const wantScope = `year-${selectedYear}`;
+    if (dbScope === wantScope) return; // já temos o ano carregado
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingHistory(true);
+        const rows = await loadLastYear(selectedYear);
+        if (cancelled) return;
+        mergeRowsIntoCcMap(rows);
+        setDb(rows);
+        setDbScope(wantScope);
+      } catch (e) { console.warn('loadYear (dashboard):', e); showToast('Erro ao carregar ano.'); }
+      finally { if (!cancelled) setLoadingHistory(false); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedYear]);
 
   useEffect(() => {
     if (people.length && person && !people.includes(person)) setPerson("");
@@ -607,20 +656,41 @@ export default function TimesheetApp() {
       if (forecastRows.length)     await upsertForecast(forecastRows);
       if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
       showToast(`Salvo (${rows.length} linha${rows.length > 1 ? "s" : ""}).`);
-      loadFromClickUp();
+      // Re-busca apenas a semana salva e merge no cache anual — não invalida o ano inteiro.
+      loadFromClickUp({ silent: true, force: true });
     } catch (e) { console.warn(e); showToast("Erro ao salvar."); }
     finally { setSaving(false); }
   }
 
-  async function loadFromClickUp({ silent = false } = {}) {
+  // Merge: substitui no db as linhas da semana pelo novo conjunto (mantém o resto do ano).
+  function mergeWeekIntoDb(year, week, weekRows) {
+    setDb(prev => {
+      const others = prev.filter(r => !(r.Year === year && r.ISO_Week === week));
+      return [...others, ...weekRows];
+    });
+  }
+
+  // Carrega entries da pessoa pra UI. Se o cache anual já tem o ano,
+  // FILTRA EM MEMÓRIA (instantâneo). Senão, busca a semana e merge no cache.
+  // `force=true` (botão Carregar Semana): sempre busca fresh + merge.
+  async function loadFromClickUp({ silent = false, force = false } = {}) {
     if (!person) {
       if (!silent) showToast("Selecione a pessoa primeiro.");
       return;
     }
+    const yearReady = dbScope === `year-${selectedYear}`;
     try {
-      setLoadingWeek(true);
-      const rows = await loadForWeek(selectedYear, selectedWeek);
-      setDb(rows); setPreviewPage(1);
+      let rows;
+      if (yearReady && !force) {
+        // Cache hit: filtra em memória, sem rede
+        rows = db.filter(r => r.Year === selectedYear && r.ISO_Week === selectedWeek);
+      } else {
+        // Cache miss (ou refresh forçado): busca só esta semana e merge no cache
+        setLoadingWeek(true);
+        rows = await loadForWeek(selectedYear, selectedWeek);
+        mergeWeekIntoDb(selectedYear, selectedWeek, rows);
+      }
+      setPreviewPage(1);
       mergeRowsIntoCcMap(rows);
       if (!silent) setDbOpen(true);
       const mine = rows.filter(r => r.Person === person);
@@ -644,6 +714,8 @@ export default function TimesheetApp() {
       setLoadingWeek(true);
       const r = await loadLastYear(selectedYear);
       setDb(r); setPreviewPage(1); setDbOpen(true);
+      setDbScope(`year-${selectedYear}`);
+      mergeRowsIntoCcMap(r);
       showToast(`${r.length} registros.`);
     } catch { showToast("Erro ao carregar ano."); }
     finally { setLoadingWeek(false); }
@@ -842,7 +914,7 @@ export default function TimesheetApp() {
             {/* Status + Carregar */}
             <div className="flex items-center justify-between mb-5 px-1">
               <WeekStatus entries={entries} />
-              <button onClick={loadFromClickUp} disabled={loadingWeek || !person} className={btnGhost + " text-[13px] py-1.5"}>
+              <button onClick={() => loadFromClickUp({ force: true })} disabled={loadingWeek || !person} className={btnGhost + " text-[13px] py-1.5"}>
                 {loadingWeek ? "Carregando…" : "Carregar semana"}
               </button>
             </div>
@@ -1101,7 +1173,7 @@ export default function TimesheetApp() {
           <>
             {/* Load controls */}
             <div className="flex flex-wrap items-center gap-2 mb-6">
-              <button onClick={loadFromClickUp} disabled={loadingWeek || !person} className={btnGhost}>
+              <button onClick={() => loadFromClickUp({ force: true })} disabled={loadingWeek || !person} className={btnGhost}>
                 {loadingWeek ? "Carregando…" : "Carregar Semana"}
               </button>
               <button onClick={loadYear} disabled={loadingWeek} className={btnGhost}>
@@ -1113,7 +1185,7 @@ export default function TimesheetApp() {
             </div>
 
             {/* Dashboard charts */}
-            <Dashboard db={db} />
+            <Dashboard db={db} projectMeta={projectMeta} />
 
             {/* Records */}
             <div className={`${card} mt-5`}>
