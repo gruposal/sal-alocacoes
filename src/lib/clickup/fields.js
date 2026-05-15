@@ -35,3 +35,21 @@ export function ccNameToId(name) {
 export function ccIdToName(id) {
   return CENTRO_DE_CUSTO_OPTIONS.find(o => o.id === id)?.name ?? null;
 }
+
+// Mapa CC → variável CSS do dot color. Pastéis calibrados para canvas creme.
+// As CSS vars vivem em src/index.css (light + dark).
+export const CC_VAR = {
+  'Branding':        'var(--cc-branding)',
+  'Comunicação':     'var(--cc-comunicacao)',
+  'Conteúdo':        'var(--cc-conteudo)',
+  'CSC':             'var(--cc-csc)',
+  'Marketing':       'var(--cc-marketing)',
+  'Sal':             'var(--cc-sal)',
+  'Vendas':          'var(--cc-vendas)',
+  'Novos Negócios':  'var(--cc-novos-negocios)',
+  'Entretenimento':  'var(--cc-entretenimento)',
+};
+
+export function ccColor(name) {
+  return CC_VAR[name] || 'var(--cc-default)';
+}

@@ -4,31 +4,65 @@ import Dashboard from "./Dashboard.jsx";
 import Directory from "./Directory.jsx";
 import { loadForWeek, loadLastYear, upsertForecast, upsertConsolidated, deleteRow as cuDeleteRow } from "./lib/clickup/entries.js";
 import { people as cuPeople, projects as cuProjects } from "./lib/clickup/lists.js";
-import { CENTRO_DE_CUSTO_OPTIONS } from "./lib/clickup/fields.js";
+import { CENTRO_DE_CUSTO_OPTIONS, ccColor } from "./lib/clickup/fields.js";
+import "./lib/hoursLogic.js"; // side-effect: roda self-tests no load
 
 const DEFAULT_BUS = CENTRO_DE_CUSTO_OPTIONS.map(o => o.name);
 const toTwo = (n) => String(n).padStart(2, "0");
+
+// Formato "18 – 22 de maio" (pt-BR). Reduz para "29 dez – 2 jan" se cruza mês.
+function formatWeekRangePt(start, end) {
+  const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric' });
+  const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
+  const sMonth = monthFmt.format(start);
+  const eMonth = monthFmt.format(end);
+  if (sMonth === eMonth) {
+    return `${dayFmt.format(start)} – ${dayFmt.format(end)} de ${sMonth}`;
+  }
+  return `${dayFmt.format(start)} de ${sMonth.slice(0, 3)} – ${dayFmt.format(end)} de ${eMonth.slice(0, 3)}`;
+}
 const uid = () => Math.random().toString(36).slice(2, 10);
 const PERSIST_KEY = "ts:cu:v1";
 
 function safeJsonParse(t, fb) { try { return JSON.parse(t); } catch { return fb; } }
+
+// ─── Cache em localStorage (stale-while-revalidate) ─────────────────────────
+const CACHE_VERSION = 'v1';
+const CACHE_FRESH_MS = 5 * 60 * 1000; // 5 min — abaixo disso, pula refresh em background
+
+function cacheKey(kind, scope = '') {
+  return `ts:cache:${kind}${scope ? ':' + scope : ''}:${CACHE_VERSION}`;
+}
+
+function readCache(kind, scope = '') {
+  try {
+    const raw = typeof window === 'undefined' ? null : localStorage.getItem(cacheKey(kind, scope));
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== 'object' || typeof obj.savedAt !== 'number') return null;
+    return obj;
+  } catch { return null; }
+}
+
+function writeCache(kind, payload, scope = '') {
+  try {
+    localStorage.setItem(cacheKey(kind, scope), JSON.stringify({ ...payload, savedAt: Date.now() }));
+  } catch (e) {
+    console.warn('writeCache failed:', e?.message);
+  }
+}
+
+function isCacheFresh(cached) {
+  if (!cached?.savedAt) return false;
+  return Date.now() - cached.savedAt < CACHE_FRESH_MS;
+}
 function weekStartEnd(year, isoWeek) {
   const d = setISOWeek(setYear(new Date(), year), isoWeek);
   return { start: startOfISOWeek(d), end: endOfISOWeek(d) };
 }
 
-export function sumWeek(entry) { return Number(entry?.Hours_Forecast) || 0; }
-export function allowedAfterCap(otherTotal, candidate) {
-  return Math.min(Math.max(0, 40 - otherTotal), Math.max(0, candidate));
-}
-
-if (typeof window !== "undefined" && !window.__TS_TEST__) {
-  window.__TS_TEST__ = true;
-  console.assert(sumWeek({ Hours_Forecast: 32 }) === 32);
-  console.assert(allowedAfterCap(30, 5) === 5);
-  console.assert(allowedAfterCap(38, 10) === 2);
-  console.log("[Timesheet] self-tests OK");
-}
+// Funções puras de horas (sumWeek, allowedAfterCap) ficam em ./lib/hoursLogic.js
+// para não quebrar o Fast Refresh deste módulo. Importe de lá se precisar.
 
 // Normaliza para comparação: remove acentos + lowercase.
 // Mesma lógica de src/lib/clickup/entries.js — garante que "Edilson Junior" encontra "Edilson Júnior".
@@ -171,9 +205,9 @@ function Combobox({ value, onChange, options, placeholder, className }) {
         <div
           ref={listRef}
           style={dropStyle}
-          className="flex flex-col rounded-2xl border border-black/[0.12] dark:border-white/[0.15] bg-white dark:bg-[#2C2C2E] shadow-2xl text-[15px] overflow-hidden"
+          className="flex flex-col rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] shadow-lg text-[14px] overflow-hidden"
         >
-          <div className="flex items-center justify-between px-4 py-2 text-[11px] uppercase tracking-wider text-[#8E8E93] border-b border-black/[0.06] dark:border-white/[0.08] bg-[#F8F8FA] dark:bg-[#1C1C1E] shrink-0">
+          <div className="flex items-center justify-between px-3 py-1.5 text-[10.5px] uppercase tracking-[0.06em] text-[var(--text-3)] border-b border-[var(--border-subtle)] bg-[var(--surface-alt)] shrink-0">
             <span>{filtered.length} {filtered.length === 1 ? 'opção' : 'opções'}</span>
             <span className="hidden sm:inline">↑↓ navegar · ⏎ selecionar · esc fechar</span>
           </div>
@@ -196,9 +230,9 @@ function Combobox({ value, onChange, options, placeholder, className }) {
                   onMouseDown={e => { e.preventDefault(); select(opt); }}
                   onTouchEnd={e => { e.preventDefault(); select(opt); }}
                   className={[
-                    'px-4 py-3 cursor-pointer border-b border-black/[0.04] dark:border-white/[0.04] last:border-0',
-                    isHighlighted ? 'bg-[#F2F2F7] dark:bg-[#3A3A3C]' : '',
-                    isSelected ? 'font-semibold text-[#007AFF] dark:text-[#0A84FF]' : 'text-black dark:text-white',
+                    'px-3 py-2 cursor-pointer border-b border-[var(--border-subtle)] last:border-0',
+                    isHighlighted ? 'bg-[var(--surface-alt)]' : '',
+                    isSelected ? 'font-semibold text-[var(--accent)]' : 'text-[var(--text-1)]',
                   ].join(' ')}
                 >
                   {opt}
@@ -209,6 +243,90 @@ function Combobox({ value, onChange, options, placeholder, className }) {
         </div>
       )}
     </>
+  );
+}
+
+// ─── CcPill: bolinha colorida + nome do Centro de Custo ─────────────────────
+function CcPill({ cc, compact = false }) {
+  if (!cc) return <span className="text-[var(--text-3)]">—</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[13.5px] text-[var(--text-2)] whitespace-nowrap">
+      <span
+        className="inline-block rounded-full shrink-0"
+        style={{ width: 8, height: 8, backgroundColor: ccColor(cc) }}
+        aria-hidden="true"
+      />
+      {compact ? null : cc}
+    </span>
+  );
+}
+
+// ─── WeekNav: navegação semanal média — arrows visíveis + texto centralizado + Hoje
+function WeekNav({ year, week, start, end, onPrev, onNext, onToday }) {
+  const t = new Date();
+  const isCurrent = getISOWeek(t) === week && t.getFullYear() === year;
+  return (
+    <div className="inline-flex items-center gap-2">
+      <div className="inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-[var(--surface-alt)] border border-[var(--border-subtle)]">
+        <button onClick={onPrev} aria-label="Semana anterior"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
+          ‹
+        </button>
+        <span className="px-3 tabular-nums whitespace-nowrap text-[15px]">
+          <span className="font-semibold text-[var(--text-1)]">Semana {toTwo(week)}</span>
+          <span className="text-[var(--text-3)] mx-1.5">·</span>
+          <span className="text-[var(--text-2)]">{formatWeekRangePt(start, end)}</span>
+        </span>
+        <button onClick={onNext} aria-label="Próxima semana"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
+          ›
+        </button>
+      </div>
+      {!isCurrent && (
+        <button onClick={onToday}
+          className="px-3 py-1.5 rounded-md text-[13px] font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+          ↺ Hoje
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── PersonTitle: combobox em forma de título botão grande, óbvio "clica aqui"
+function PersonTitle({ value, onChange, options, loading }) {
+  return (
+    <div className="group inline-flex items-center gap-2.5 rounded-lg pl-3 pr-3 py-1.5 bg-[var(--surface-alt)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] transition-all cursor-pointer focus-within:bg-[var(--surface)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/15">
+      <Combobox
+        value={value}
+        onChange={onChange}
+        options={options}
+        placeholder={loading ? "Carregando…" : "Selecionar colaborador…"}
+        className="bg-transparent border-0 p-0 text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:ring-0 cursor-pointer min-w-[240px]"
+      />
+      <span className="text-[var(--text-2)] text-[13px] leading-none group-hover:text-[var(--text-1)] transition-colors pointer-events-none select-none">▾</span>
+    </div>
+  );
+}
+
+// ─── HeroHeader: título sans-bold + meta + ação à direita (ClickUp-style) ───
+function HeroHeader({ title, subtitle, right, eyebrow }) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[var(--border-subtle)]">
+      <div className="min-w-0">
+        {eyebrow && (
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] mb-1">
+            {eyebrow}
+          </div>
+        )}
+        <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)] leading-tight">
+          {title}
+        </h1>
+        {subtitle && (
+          <div className="mt-1 text-[13.5px] text-[var(--text-2)]">{subtitle}</div>
+        )}
+      </div>
+      {right && <div className="shrink-0">{right}</div>}
+    </header>
   );
 }
 
@@ -241,20 +359,20 @@ function HoursInput({ value, onChange, placeholder = '0', className = '', min = 
         onChange={e => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className={`${className} pr-8`}
+        className={`${className} pr-6`}
       />
-      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col">
+      <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex flex-col opacity-60 hover:opacity-100 transition-opacity">
         <button
           type="button" tabIndex={-1}
           onMouseDown={press(+step)}
           aria-label="Aumentar"
-          className="h-3.5 w-6 flex items-center justify-center text-[10px] leading-none text-[#8E8E93] hover:text-[#007AFF] dark:hover:text-[#0A84FF] hover:bg-black/[0.05] dark:hover:bg-white/[0.05] rounded-t"
+          className="h-3 w-4 flex items-center justify-center text-[8px] leading-none text-[var(--text-3)] hover:text-[var(--accent)]"
         >▲</button>
         <button
           type="button" tabIndex={-1}
           onMouseDown={press(-step)}
           aria-label="Diminuir"
-          className="h-3.5 w-6 flex items-center justify-center text-[10px] leading-none text-[#8E8E93] hover:text-[#007AFF] dark:hover:text-[#0A84FF] hover:bg-black/[0.05] dark:hover:bg-white/[0.05] rounded-b"
+          className="h-3 w-4 flex items-center justify-center text-[8px] leading-none text-[var(--text-3)] hover:text-[var(--accent)]"
         >▼</button>
       </div>
     </div>
@@ -266,17 +384,17 @@ function WeekStatus({ entries }) {
   const hasForecast = entries.some(e => Number(e.hours_forecast) > 0);
   const hasConsolidated = entries.some(e => Number(e.hours_consolidated) > 0);
   if (hasConsolidated) return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1 rounded-full bg-[#34C759]/10 text-[#34C759] border border-[#34C759]/20">
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--positive)]/10 text-[var(--positive)]">
       ● Consolidado
     </span>
   );
   if (hasForecast) return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1 rounded-full bg-[#FF9500]/10 text-[#FF9500] border border-[#FF9500]/20">
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--warning)]/10 text-[var(--warning)]">
       ◑ Previsão
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1 rounded-full bg-black/[0.05] dark:bg-white/[0.08] text-[#8E8E93] border border-black/[0.06] dark:border-white/[0.08]">
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--surface-alt)] text-[var(--text-3)]">
       ○ Sem lançamento
     </span>
   );
@@ -289,11 +407,11 @@ function TopProgressBar({ visible, label }) {
       className={`fixed top-0 left-0 right-0 z-[10000] pointer-events-none transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
       aria-hidden={!visible}
     >
-      <div className="h-[3px] bg-[#007AFF]/15 dark:bg-[#0A84FF]/20 overflow-hidden">
-        <div className="h-full w-1/3 bg-[#007AFF] dark:bg-[#0A84FF] tp-indeterminate" />
+      <div className="h-[2px] bg-[var(--accent-soft)] overflow-hidden">
+        <div className="h-full w-1/3 bg-[var(--accent)] tp-indeterminate" />
       </div>
       {label && (
-        <div className="absolute right-3 top-2 text-[11px] text-[#8E8E93] bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur px-2 py-1 rounded-full border border-black/[0.06] dark:border-white/[0.08] shadow-sm pointer-events-none">
+        <div className="absolute right-3 top-1.5 text-[10.5px] text-[var(--text-2)] bg-[var(--surface)]/95 backdrop-blur px-2 py-0.5 rounded-md border border-[var(--border-subtle)] shadow-sm pointer-events-none">
           {label}
         </div>
       )}
@@ -307,7 +425,7 @@ function SkeletonRow({ cells = 5 }) {
     <tr className="animate-pulse">
       {Array.from({ length: cells }).map((_, i) => (
         <td key={i} className="px-3 py-3">
-          <div className="h-5 rounded bg-black/[0.06] dark:bg-white/[0.08]" />
+          <div className="h-4 rounded bg-[var(--surface-alt)]" />
         </td>
       ))}
     </tr>
@@ -316,17 +434,52 @@ function SkeletonRow({ cells = 5 }) {
 
 // ─── Desvio badge ─────────────────────────────────────────────────────────────
 function Desvio({ forecast, consolidated }) {
-  if (consolidated == null || consolidated === "") return <span className="text-[#8E8E93]">—</span>;
+  if (consolidated == null || consolidated === "") return <span className="text-[var(--text-3)]">—</span>;
   const d = Number(consolidated) - Number(forecast);
-  if (d === 0) return <span className="text-[#34C759] font-semibold tabular-nums">0h</span>;
-  if (d > 0)   return <span className="text-[#FF3B30] dark:text-[#FF453A] font-semibold tabular-nums">+{d}h</span>;
-  return              <span className="text-[#FF9500] dark:text-[#FF9F0A] font-semibold tabular-nums">{d}h</span>;
+  if (d === 0) return <span className="text-[var(--positive)] font-semibold tabular-nums">0h</span>;
+  if (d > 0)   return <span className="text-[var(--negative)] font-semibold tabular-nums">+{d}h</span>;
+  return              <span className="text-[var(--warning)] font-semibold tabular-nums">{d}h</span>;
+}
+
+// ─── DesvioCell ───────────────────────────────────────────────────────────────
+// Quando Realizadas ainda não foi preenchido, oferece um botão "↺ replicar"
+// que copia Previstas → Realizadas. Quando preenchido, mostra o desvio.
+function DesvioCell({ forecast, consolidated, onReplicate }) {
+  const fc = Number(forecast) || 0;
+  const filled = consolidated !== null && consolidated !== "" && consolidated !== undefined;
+  if (filled) return <Desvio forecast={forecast} consolidated={consolidated} />;
+  if (fc <= 0) return <span className="text-[var(--text-3)]">—</span>;
+  return (
+    <button
+      onClick={onReplicate}
+      title={`Replicar ${fc}h previsto para realizado`}
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[12px] font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors whitespace-nowrap"
+    >
+      ↺ replicar
+    </button>
+  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function TimesheetApp() {
-  const [people, setPeople] = useState([]);
-  const [projects, setProjects] = useState([]);
+  // Restaura listas + db do localStorage para evitar re-fetch em toda recarga.
+  // Refresh em background dispara só se cache > 5min (controlado nos effects abaixo).
+  // Defesa: cada cache valida tipo antes de usar — se estrutura corrompida, ignora silenciosamente.
+  const _peopleCache = readCache('people');
+  const _projMetaCache = readCache('projectMeta');
+  const _ccCache = readCache('projectToCc');
+  const _yrInit = (new Date()).getFullYear();
+  const _dbCache = readCache('db', String(_yrInit));
+
+  const _peopleData = Array.isArray(_peopleCache?.data) ? _peopleCache.data : null;
+  const _projMetaData = _projMetaCache?.data && typeof _projMetaCache.data === 'object' && !Array.isArray(_projMetaCache.data) ? _projMetaCache.data : null;
+  const _ccData = _ccCache?.data && typeof _ccCache.data === 'object' && !Array.isArray(_ccCache.data) ? _ccCache.data : null;
+  const _dbRows = Array.isArray(_dbCache?.rows) ? _dbCache.rows : null;
+
+  const [people, setPeople] = useState(() => _peopleData || []);
+  const [projects, setProjects] = useState(() =>
+    _projMetaData ? Object.keys(_projMetaData) : []
+  );
   const bus = DEFAULT_BUS;
 
   const today = new Date();
@@ -344,18 +497,18 @@ export default function TimesheetApp() {
   const [entries, setEntries] = useState(() =>
     Array.isArray(persisted.entries) && persisted.entries.length ? persisted.entries : [blankEntry()]
   );
-  const [db, setDb]                         = useState([]);
+  const [db, setDb]                         = useState(() => _dbRows || []);
   const [dbFilter, setDbFilter]             = useState("");
   const [dbOpen, setDbOpen]                 = useState(false);
   // Mapa project name → CC mais comum, alimentado pelo histórico carregado.
   // Permite auto-preencher Centro de Custo ao selecionar projeto.
-  const [projectToCc, setProjectToCc]       = useState({});
+  const [projectToCc, setProjectToCc]       = useState(() => _ccData || {});
   const [saving, setSaving]                 = useState(false);
   const [loadingWeek, setLoadingWeek]       = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false); // carga em background do ano (para mapa CC)
   // Indica o que está em `db` agora: 'empty', 'year-2026', 'week-2026-W14' etc.
   // Permite saber se o Dashboard precisa recarregar ou pode reusar.
-  const [dbScope, setDbScope] = useState('empty');
+  const [dbScope, setDbScope] = useState(() => _dbRows?.length ? `year-${_yrInit}` : 'empty');
   const [previewSort, setPreviewSort]       = useState({ field: "ISO_Week", dir: "desc" });
   const [previewPage, setPreviewPage]       = useState(1);
   const [previewPageSize]                   = useState(15);
@@ -430,7 +583,37 @@ export default function TimesheetApp() {
   }, []);
 
   // Metadados dos projetos (Cliente, CC, Categoria/Interno). Usado pelo Dashboard.
-  const [projectMeta, setProjectMeta] = useState({}); // map { projectName → { cliente, centroCusto, categoria, formato, isInterno } }
+  const [projectMeta, setProjectMeta] = useState(() => _projMetaData || {}); // map { projectName → { cliente, centroCusto, categoria, formato, isInterno } }
+
+  // ─── Persistência debounced no localStorage (stale-while-revalidate) ─────
+  // Salva db/projectMeta/projectToCc/people em cache para sobreviver a reloads.
+  // Importante: declarados DEPOIS de todos os useState que referenciam, pra evitar TDZ.
+  useEffect(() => {
+    if (!db.length) return;
+    const t = setTimeout(() => {
+      const scope = dbScope.startsWith('year-') ? dbScope.replace('year-', '') : '';
+      if (scope) writeCache('db', { rows: db }, scope);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [db, dbScope]);
+
+  useEffect(() => {
+    if (!Object.keys(projectMeta).length) return;
+    const t = setTimeout(() => writeCache('projectMeta', { data: projectMeta }), 500);
+    return () => clearTimeout(t);
+  }, [projectMeta]);
+
+  useEffect(() => {
+    if (!Object.keys(projectToCc).length) return;
+    const t = setTimeout(() => writeCache('projectToCc', { data: projectToCc }), 500);
+    return () => clearTimeout(t);
+  }, [projectToCc]);
+
+  useEffect(() => {
+    if (!people.length) return;
+    const t = setTimeout(() => writeCache('people', { data: people }), 500);
+    return () => clearTimeout(t);
+  }, [people]);
 
   async function loadLists() {
     try {
@@ -453,7 +636,12 @@ export default function TimesheetApp() {
       }
     } catch (e) { console.warn("loadLists:", e); }
   }
-  useEffect(() => { loadLists(); }, []);
+  useEffect(() => {
+    // Skip se cache ainda fresco — evita rede a cada reload do app
+    if (isCacheFresh(_peopleCache) && isCacheFresh(_projMetaCache)) return;
+    loadLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Constrói/atualiza o mapa project → CC a partir das entries carregadas.
   // Para cada projeto, escolhe o CC mais frequente no histórico (vota por contagem).
@@ -479,9 +667,10 @@ export default function TimesheetApp() {
     });
   }
 
-  // Carga inicial em background: puxa o ano todo pra ter mapa rico já no primeiro project select
-  // E também alimenta o `db` para o Dashboard funcionar sem clique manual.
+  // Carga inicial em background: puxa o ano todo. Mas se cache local for fresco
+  // (<5min) E houver linhas válidas, pula — usa o que já restaurou nos useState lazies.
   useEffect(() => {
+    if (_dbRows && isCacheFresh(_dbCache)) return; // cache fresco e válido — nada a fazer
     let cancelled = false;
     (async () => {
       try {
@@ -490,11 +679,8 @@ export default function TimesheetApp() {
         const rows = await loadLastYear(yr);
         if (cancelled) return;
         mergeRowsIntoCcMap(rows);
-        // Só seta o db se nada relevante já foi carregado (evita sobrescrever uma semana aberta)
-        if (dbScope === 'empty') {
-          setDb(rows);
-          setDbScope(`year-${yr}`);
-        }
+        setDb(rows);
+        setDbScope(`year-${yr}`);
       } catch (e) { console.warn("loadLastYear (cc map):", e); }
       finally { if (!cancelled) setLoadingHistory(false); }
     })();
@@ -544,6 +730,11 @@ export default function TimesheetApp() {
     if (selectedWeek < 52) setSelectedWeek(w => w + 1);
     else { setSelectedYear(y => y + 1); setSelectedWeek(1); }
   }
+  function goToToday() {
+    const t = new Date();
+    setSelectedYear(t.getFullYear());
+    setSelectedWeek(getISOWeek(t));
+  }
 
   const totalForecast     = useMemo(() => entries.reduce((s, e) => s + (Number(e.hours_forecast) || 0), 0), [entries]);
   const totalConsolidated = useMemo(() => entries.reduce((s, e) => s + (Number(e.hours_consolidated) || 0), 0), [entries]);
@@ -574,11 +765,9 @@ export default function TimesheetApp() {
 
   function addRow()       { setEntries(p => [...p, blankEntry()]); }
   function removeRow(id)  {
-    setEntries(p => {
-      if (p.length === 1) return p;
-      if (!window.confirm("Remover esta linha?")) return p;
-      return p.filter(e => e.id !== id);
-    });
+    if (entries.length === 1) return;
+    if (!window.confirm("Remover esta linha?")) return;
+    setEntries(p => p.filter(e => e.id !== id));
   }
   function clearEntries() { setEntries([blankEntry()]); }
 
@@ -783,20 +972,20 @@ export default function TimesheetApp() {
     XLSX.writeFile(wb, `Timesheet_${selectedYear}_${format(new Date(), "yyyyMMdd")}.xlsx`);
   }
 
-  // ─── Apple design tokens ──────────────────────────────────────────────────
-  const bg        = "min-h-screen bg-[#F2F2F7] dark:bg-black text-black dark:text-white";
-  const card      = "bg-white dark:bg-[#1C1C1E] rounded-2xl";
-  const inputCls  = "rounded-[10px] border border-black/[0.08] dark:border-white/[0.1] bg-[#F2F2F7] dark:bg-[#2C2C2E] px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] dark:focus:ring-[#0A84FF] w-full";
-  const btnBlue   = "w-full flex items-center justify-center py-[14px] rounded-[14px] bg-[#007AFF] dark:bg-[#0A84FF] text-white text-[17px] font-semibold disabled:opacity-40 transition-opacity active:opacity-70";
-  const btnGhost  = "inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[10px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#007AFF] dark:text-[#0A84FF] text-[15px] font-medium disabled:opacity-40 transition-colors hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C]";
-  const th        = "px-4 py-2.5 text-left text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide whitespace-nowrap";
-  const td        = "px-4 py-3";
-  const sep       = "divide-y divide-black/[0.06] dark:divide-white/[0.06]";
+  // ─── Editorial design tokens (warm off-white + serif display) ────────────
+  const bg        = "min-h-screen bg-[var(--canvas)] text-[var(--text-1)]";
+  const card      = "bg-[var(--surface)] rounded-xl border border-[var(--border-subtle)]";
+  const inputCls  = "rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors w-full";
+  const btnBlue   = "inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md bg-[var(--accent)] text-[var(--accent-fg)] text-[14px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--accent-hover)]";
+  const btnGhost  = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--border-subtle)] bg-transparent text-[var(--text-1)] text-[13px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--surface-alt)] hover:border-[var(--border-strong)]";
+  const th        = "px-3 py-2 text-left text-[10.5px] font-semibold text-[var(--text-3)] uppercase tracking-[0.06em] whitespace-nowrap";
+  const td        = "px-3 py-2";
+  const sep       = "divide-y divide-[var(--border-subtle)]";
 
   const TABS = [
-    { k: "timesheet", label: "Lançar",       icon: "⏱" },
-    { k: "planning",  label: "Planejamento", icon: "📅" },
-    { k: "dashboard", label: "Visão Geral",  icon: "📊" },
+    { k: "timesheet", label: "Lançar",        icon: "⏱" },
+    { k: "planning",  label: "Planejamento",  icon: "📅" },
+    { k: "dashboard", label: "Visão Geral",   icon: "📊" },
   ];
 
   const loadingLabel = saving ? 'Salvando…'
@@ -809,40 +998,48 @@ export default function TimesheetApp() {
       <TopProgressBar visible={!!loadingLabel} label={loadingLabel} />
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-30 backdrop-blur-2xl bg-white/80 dark:bg-black/80 border-b border-black/[0.08] dark:border-white/[0.08]">
-        <div className="max-w-3xl mx-auto px-4 h-12 flex items-center gap-3">
-          <span className="font-semibold text-[17px] tracking-tight shrink-0">SAL Timesheet</span>
+      <header className="sticky top-0 z-30 bg-[var(--canvas)]/95 backdrop-blur-md border-b border-[var(--border-subtle)]">
+        <div className="w-full px-6 sm:px-10 lg:px-16 xl:px-24 h-14 flex items-center gap-4">
+          <span className="text-[15px] tracking-tight shrink-0">
+            <span className="font-semibold">Grupo SAL</span>
+            <span className="text-[var(--text-3)] mx-2">·</span>
+            <span className="text-[var(--text-2)]">Timesheet</span>
+          </span>
 
-          {/* Segmented control — desktop */}
-          <div className="hidden sm:flex mx-auto bg-[#E5E5EA] dark:bg-[#3A3A3C] rounded-[9px] p-[2px] gap-[2px]">
-            {TABS.map(t => (
-              <button key={t.k} onClick={() => setView(t.k)}
-                className={`px-5 py-[5px] rounded-[7px] text-[13px] font-medium transition-all duration-150 ${
-                  view === t.k
-                    ? "bg-white dark:bg-[#636366] text-black dark:text-white shadow-sm"
-                    : "text-[#8E8E93] hover:text-black dark:hover:text-white"
-                }`}>
-                {t.label}
-              </button>
-            ))}
-          </div>
+          {/* Tabs — desktop, underline style */}
+          <nav className="hidden sm:flex mx-auto gap-1">
+            {TABS.map(t => {
+              const active = view === t.k;
+              return (
+                <button key={t.k} onClick={() => setView(t.k)}
+                  className={`relative px-4 py-3 text-[13.5px] font-medium transition-colors ${
+                    active ? "text-[var(--text-1)]" : "text-[var(--text-3)] hover:text-[var(--text-1)]"
+                  }`}>
+                  {t.label}
+                  {active && (
+                    <span className="absolute left-2 right-2 -bottom-px h-[2px] bg-[var(--accent)] rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
 
-          <div className="ml-auto sm:ml-0 flex items-center gap-0.5">
+          <div className="ml-auto sm:ml-0 flex items-center gap-1">
             <button onClick={exportExcel}
-              className="hidden sm:flex items-center px-3 py-1.5 rounded-[8px] text-[13px] text-[#007AFF] dark:text-[#0A84FF] font-medium hover:bg-[#F2F2F7] dark:hover:bg-[#2C2C2E] transition-colors">
+              className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-md text-[13px] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors">
               Excel
             </button>
             <button onClick={() => setSettingsOpen(true)}
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors text-[15px] ${!hasToken ? "text-[#FF9500]" : "text-[#8E8E93] hover:bg-[#F2F2F7] dark:hover:bg-[#2C2C2E]"}`}
+              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors text-[14px] ${!hasToken ? "text-[var(--warning)]" : "text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)]"}`}
               title="Configurações">
               ⚙
             </button>
             <button onClick={() => setHelpOpen(v => !v)}
-              className="w-9 h-9 flex items-center justify-center rounded-full text-[#8E8E93] hover:bg-[#F2F2F7] dark:hover:bg-[#2C2C2E] transition-colors text-[15px]">
+              className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors text-[14px]">
               ?
             </button>
             <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
-              className="w-9 h-9 flex items-center justify-center rounded-full text-[#8E8E93] hover:bg-[#F2F2F7] dark:hover:bg-[#2C2C2E] transition-colors text-[15px]">
+              className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors text-[14px]">
               {theme === "dark" ? "☀" : "◑"}
             </button>
           </div>
@@ -850,15 +1047,15 @@ export default function TimesheetApp() {
       </header>
 
       {/* ── Main ── */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 pb-32 sm:pb-12">
+      <main className="w-full px-6 sm:px-10 lg:px-16 xl:px-24 py-8 pb-32 sm:pb-16 space-y-10">
 
         {!hasToken && (
           <button onClick={() => setSettingsOpen(true)}
-            className="w-full mb-5 px-4 py-3 rounded-2xl bg-[#FF9500]/10 border border-[#FF9500]/25 text-left flex items-center gap-3 hover:bg-[#FF9500]/15 transition-colors">
-            <span className="text-[22px] leading-none shrink-0">⚠️</span>
+            className="w-full mb-5 px-4 py-3 rounded-lg bg-[var(--warning)]/10 border border-[var(--warning)]/25 text-left flex items-center gap-3 hover:bg-[var(--warning)]/15 transition-colors">
+            <span className="text-[20px] leading-none shrink-0">⚠️</span>
             <div>
-              <div className="text-[15px] font-semibold text-[#FF9500]">Token ClickUp não configurado</div>
-              <div className="text-[13px] text-[#FF9500]/80">Toque para configurar →</div>
+              <div className="text-[14px] font-semibold text-[var(--warning)]">Token ClickUp não configurado</div>
+              <div className="text-[12.5px] text-[var(--warning)]/80">Toque para configurar →</div>
             </div>
           </button>
         )}
@@ -868,75 +1065,143 @@ export default function TimesheetApp() {
         ══════════════════════════════════════════ */}
         {view === "timesheet" && (
           <>
-            {/* Person + Week — iOS grouped card */}
-            <div className={`${card} overflow-hidden mb-5`}>
-              <div className={sep}>
-                {/* Pessoa */}
-                <div className="px-4 py-3 flex items-center gap-3 min-h-[52px]">
-                  <span className="text-[15px] text-[#8E8E93] w-28 shrink-0">Colaborador</span>
-                  <div className="flex-1">
-                    <Combobox
-                      value={person}
-                      onChange={setPerson}
-                      options={people}
-                      placeholder={people.length === 0 ? "Carregando…" : "Selecionar…"}
-                      className={inputCls}
-                    />
-                  </div>
+            {/* Cabeçalho: Pessoa = título-botão grande (linha 1) | Semana+Status+Atualizar juntos (linha 2) */}
+            <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
+              <PersonTitle
+                value={person}
+                onChange={setPerson}
+                options={people}
+                loading={people.length === 0}
+              />
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <WeekNav
+                  year={selectedYear} week={selectedWeek} start={start} end={end}
+                  onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
+                />
+                <div className="flex items-center gap-2 text-[12.5px] text-[var(--text-2)]">
+                  <WeekStatus entries={entries} />
+                  <span className="text-[var(--text-3)]">·</span>
+                  <button onClick={() => loadFromClickUp({ force: true })} disabled={loadingWeek || !person}
+                    className="hover:text-[var(--accent)] disabled:opacity-40 transition-colors">
+                    {loadingWeek ? "Atualizando…" : "↻ Atualizar"}
+                  </button>
                 </div>
+              </div>
+            </header>
 
-                {/* Semana */}
-                <div className="px-4 py-3 flex items-center gap-3 min-h-[60px]">
-                  <span className="text-[15px] text-[#8E8E93] w-28 shrink-0">Semana</span>
-                  <div className="flex items-center gap-3 flex-1">
-                    <button onClick={prevWeek}
-                      className="w-9 h-9 flex items-center justify-center rounded-full bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[#007AFF] dark:text-[#0A84FF] text-[22px] leading-none font-light shrink-0">
-                      ‹
+            {/* Entry list — tabela em sm+ / cards verticais no mobile */}
+
+            {/* MOBILE: cards (uma entry por bloco, sem scroll horizontal) */}
+            <div className="sm:hidden space-y-2">
+              {loadingWeek && !entries.some(e => e.project || e.hours_forecast || e.hours_consolidated) ? (
+                <>
+                  <div className="h-32 bg-[var(--surface)] rounded-lg border border-[var(--border-subtle)] animate-pulse" />
+                  <div className="h-32 bg-[var(--surface)] rounded-lg border border-[var(--border-subtle)] animate-pulse" />
+                </>
+              ) : entries.map(e => (
+                <div key={e.id} className={`${card} p-3 space-y-2.5`}>
+                  {/* Linha 1: Projeto + Remover */}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <Combobox
+                        value={e.project}
+                        onChange={val => updateEntry(e.id, "project", val)}
+                        options={projects}
+                        placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
+                        className={`${inputCls} font-medium`}
+                      />
+                    </div>
+                    <button onClick={() => removeRow(e.id)} aria-label="Remover"
+                      className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[18px] leading-none shrink-0">
+                      ×
                     </button>
-                    <div className="flex-1 text-center">
-                      <div className="text-[15px] font-semibold">
-                        Semana {toTwo(selectedWeek)}
-                        <span className="text-[#8E8E93] font-normal ml-2">{selectedYear}</span>
-                      </div>
-                      <div className="text-[12px] text-[#8E8E93] mt-0.5">
-                        {format(start, "dd/MM")} – {format(end, "dd/MM")}
+                  </div>
+                  {/* Linha 2: CC (pill leve, full-width select escondido) */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] w-12 shrink-0">CC</span>
+                    <select
+                      value={e.businessUnit}
+                      onChange={ev => updateEntry(e.id, "businessUnit", ev.target.value)}
+                      className="flex-1 bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1"
+                    >
+                      {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                    </select>
+                  </div>
+                  {/* Linha 3: Previstas | Realizadas | Desvio (grid 3 colunas iguais) */}
+                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[var(--border-subtle)]">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] mb-1">Previstas</div>
+                      <HoursInput
+                        value={e.hours_forecast}
+                        onChange={v => updateEntry(e.id, "hours_forecast", v)}
+                        placeholder="0"
+                        className={`${inputCls} text-center tabular-nums`}
+                      />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] mb-1">Realizadas</div>
+                      <HoursInput
+                        value={e.hours_consolidated}
+                        onChange={v => updateEntry(e.id, "hours_consolidated", v)}
+                        placeholder="—"
+                        className={`${inputCls} text-center tabular-nums`}
+                      />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] mb-1">Desvio</div>
+                      <div className="h-9 flex items-center justify-center text-[14px]">
+                        <DesvioCell
+                          forecast={e.hours_forecast}
+                          consolidated={e.hours_consolidated}
+                          onReplicate={() => updateEntry(e.id, "hours_consolidated", String(Number(e.hours_forecast) || 0))}
+                        />
                       </div>
                     </div>
-                    <button onClick={nextWeek}
-                      className="w-9 h-9 flex items-center justify-center rounded-full bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[#007AFF] dark:text-[#0A84FF] text-[22px] leading-none font-light shrink-0">
-                      ›
-                    </button>
                   </div>
                 </div>
+              ))}
+              {/* Botão adicionar — abaixo dos cards. Limpar à direita (discreto) */}
+              <div className="flex items-stretch gap-2">
+                <button onClick={addRow}
+                  className="flex-1 py-2.5 rounded-lg border border-dashed border-[var(--border-strong)] text-[14px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+                  + Adicionar projeto
+                </button>
+                {entries.length > 1 && (
+                  <button onClick={clearEntries}
+                    title="Limpar todos os projetos"
+                    className="px-3 rounded-lg text-[13px] text-[var(--text-3)] hover:text-[var(--negative)] hover:bg-[var(--negative)]/5 transition-colors">
+                    Limpar
+                  </button>
+                )}
               </div>
+              {/* Total no mobile */}
+              {entries.length > 0 && (
+                <div className={`${card} p-3 flex items-center justify-between bg-[var(--surface-alt)]`}>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Total</span>
+                  <div className="flex items-center gap-4 text-[14px]">
+                    <span className={`tabular-nums font-semibold ${totalForecast > 40 ? "text-[var(--negative)]" : "text-[var(--text-1)]"}`}>{totalForecast}h prev</span>
+                    {totalConsolidated > 0 && (
+                      <span className="tabular-nums font-semibold text-[var(--text-1)]">{totalConsolidated}h real</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Status + Carregar */}
-            <div className="flex items-center justify-between mb-5 px-1">
-              <WeekStatus entries={entries} />
-              <button onClick={() => loadFromClickUp({ force: true })} disabled={loadingWeek || !person} className={btnGhost + " text-[13px] py-1.5"}>
-                {loadingWeek ? "Carregando…" : "Carregar semana"}
-              </button>
-            </div>
-
-            {/* Entry table */}
-            <div className={`${card} overflow-x-auto mb-4`}>
-              <div className="px-4 pt-4 pb-2">
-                <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider">Lançamentos</span>
-              </div>
-              <table className="w-full min-w-[520px]">
+            {/* DESKTOP/TABLET: tabela tradicional */}
+            <div className={`hidden sm:block ${card} overflow-x-auto`}>
+              <table className="w-full">
                 <thead>
-                  <tr className="border-b border-black/[0.06] dark:border-white/[0.06] bg-[#F9F9F9] dark:bg-[#2C2C2E]/40">
+                  <tr className="border-b border-[var(--border-subtle)]">
+                    <th className={th} style={{ minWidth: 220 }}>Projeto</th>
                     <th className={th}>Centro de Custo</th>
-                    <th className={th}>Projeto</th>
-                    <th className={`${th} text-center`} style={{ width: "90px" }}>Previstas</th>
-                    <th className={`${th} text-center`} style={{ width: "90px" }}>Realizadas</th>
-                    <th className={`${th} text-center`} style={{ width: "70px" }}>Desvio</th>
-                    <th style={{ width: "36px" }} />
+                    <th className={`${th} text-right`} style={{ width: 110 }}>Previstas</th>
+                    <th className={`${th} text-right`} style={{ width: 110 }}>Realizadas</th>
+                    <th className={`${th} text-right`} style={{ width: 90 }}>Desvio</th>
+                    <th style={{ width: 40 }} />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
-                  {/* Skeleton enquanto auto-load roda e entries ainda estão vazias */}
+                <tbody className="divide-y divide-[var(--border-subtle)]">
                   {loadingWeek && !entries.some(e => e.project || e.hours_forecast || e.hours_consolidated) ? (
                     <>
                       <SkeletonRow cells={6} />
@@ -944,90 +1209,104 @@ export default function TimesheetApp() {
                       <SkeletonRow cells={6} />
                     </>
                   ) : entries.map(e => (
-                    <tr key={e.id} className="group">
-                      <td className={td}>
-                        <select value={e.businessUnit} onChange={ev => updateEntry(e.id, "businessUnit", ev.target.value)} className={inputCls}>
-                          {bus.map(b => <option key={b} value={b}>{b}</option>)}
-                        </select>
-                      </td>
+                    <tr key={e.id} className="group hover:bg-[var(--surface-alt)]/60 transition-colors">
                       <td className={td}>
                         <Combobox
                           value={e.project}
                           onChange={val => updateEntry(e.id, "project", val)}
                           options={projects}
                           placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
-                          className={inputCls}
+                          className={`${inputCls} font-medium`}
                         />
                       </td>
-                      <td className={`${td} text-center`}>
+                      <td className={td}>
+                        <select
+                          value={e.businessUnit}
+                          onChange={ev => updateEntry(e.id, "businessUnit", ev.target.value)}
+                          className="bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1 px-1 rounded hover:bg-[var(--surface-alt)]"
+                        >
+                          {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                        </select>
+                      </td>
+                      <td className={`${td} text-right`}>
                         <HoursInput
                           value={e.hours_forecast}
                           onChange={v => updateEntry(e.id, "hours_forecast", v)}
                           placeholder="0"
-                          className={`${inputCls} text-center tabular-nums`}
+                          className={`${inputCls} text-right tabular-nums`}
                         />
                       </td>
-                      <td className={`${td} text-center`}>
+                      <td className={`${td} text-right`}>
                         <HoursInput
                           value={e.hours_consolidated}
                           onChange={v => updateEntry(e.id, "hours_consolidated", v)}
                           placeholder="—"
-                          className={`${inputCls} text-center tabular-nums`}
+                          className={`${inputCls} text-right tabular-nums`}
                         />
                       </td>
-                      <td className={`${td} text-center`}>
-                        <Desvio forecast={e.hours_forecast} consolidated={e.hours_consolidated} />
+                      <td className={`${td} text-right`}>
+                        <DesvioCell
+                          forecast={e.hours_forecast}
+                          consolidated={e.hours_consolidated}
+                          onReplicate={() => updateEntry(e.id, "hours_consolidated", String(Number(e.hours_forecast) || 0))}
+                        />
                       </td>
-                      <td className="pr-3">
-                        <button onClick={() => removeRow(e.id)}
-                          className="w-6 h-6 flex items-center justify-center rounded-full text-[#FF3B30] dark:text-[#FF453A] opacity-0 group-hover:opacity-100 hover:bg-[#FF3B30]/10 transition-all text-[18px] leading-none">
+                      <td className="pr-3 text-right">
+                        <button onClick={() => removeRow(e.id)} aria-label="Remover linha"
+                          className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] opacity-0 group-hover:opacity-100 hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-all text-[16px] leading-none">
                           ×
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-
-              {/* Table footer */}
-              <div className="px-4 py-3 border-t border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between">
-                <button onClick={addRow} className="text-[#007AFF] dark:text-[#0A84FF] text-[15px] font-medium">
-                  + Adicionar linha
-                </button>
-                <div className="flex items-center gap-2 text-[13px] text-[#8E8E93]">
-                  <span>
-                    <span className={`font-semibold tabular-nums ${totalForecast > 40 ? "text-[#FF3B30] dark:text-[#FF453A]" : "text-black dark:text-white"}`}>
+                <tfoot>
+                  {/* Linha de adicionar / limpar — dentro da tabela, próxima dos projetos */}
+                  <tr className="border-t border-[var(--border-subtle)]">
+                    <td colSpan={6} className="p-0">
+                      <div className="flex items-stretch">
+                        <button onClick={addRow}
+                          className="flex-1 px-4 py-3 text-left text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+                          + Adicionar projeto
+                        </button>
+                        {entries.length > 1 && (
+                          <button onClick={clearEntries}
+                            title="Limpar todos os projetos"
+                            className="px-4 py-3 text-[13px] text-[var(--text-3)] hover:text-[var(--negative)] hover:bg-[var(--negative)]/5 transition-colors">
+                            Limpar
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  <tr className="border-t border-[var(--border-strong)] bg-[var(--surface-alt)]">
+                    <td className={td}>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Total</span>
+                    </td>
+                    <td className={td}></td>
+                    <td className={`${td} text-right tabular-nums font-semibold ${totalForecast > 40 ? "text-[var(--negative)]" : "text-[var(--text-1)]"}`}>
                       {totalForecast}h
-                    </span>
-                    {" "}prev.
-                  </span>
-                  {totalConsolidated > 0 && (
-                    <>
-                      <span className="text-black/20 dark:text-white/20">|</span>
-                      <span>
-                        <span className="font-semibold tabular-nums text-black dark:text-white">{totalConsolidated}h</span>
-                        {" "}real.
-                      </span>
-                      <span className="text-black/20 dark:text-white/20">|</span>
-                      <Desvio forecast={totalForecast} consolidated={totalConsolidated} />
-                    </>
-                  )}
-                </div>
-              </div>
+                    </td>
+                    <td className={`${td} text-right tabular-nums font-semibold text-[var(--text-1)]`}>
+                      {totalConsolidated > 0 ? `${totalConsolidated}h` : "—"}
+                    </td>
+                    <td className={`${td} text-right`}>
+                      {totalConsolidated > 0 && <Desvio forecast={totalForecast} consolidated={totalConsolidated} />}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
 
-            {/* CTA — Salvar */}
-            <button onClick={save}
-              disabled={saving || (totalForecast === 0 && totalConsolidated === 0) || !person}
-              className={btnBlue}>
-              {saving ? "Salvando…" : "Salvar"}
-            </button>
-
-            {/* Limpar — texto destrutivo */}
-            <button onClick={clearEntries}
-              className="w-full mt-2 py-3 text-[15px] text-[#FF3B30] dark:text-[#FF453A] font-medium transition-opacity hover:opacity-70">
-              Limpar
-            </button>
+            {/* Ação primária — Salvar à direita, sozinha (hierarquia clara) */}
+            <div className="flex justify-end pt-2">
+              <button onClick={save}
+                disabled={saving || (totalForecast === 0 && totalConsolidated === 0) || !person}
+                className={btnBlue}>
+                {saving ? "Salvando…" : "→ Salvar semana"}
+              </button>
+            </div>
           </>
         )}
 
@@ -1036,133 +1315,171 @@ export default function TimesheetApp() {
         ══════════════════════════════════════════ */}
         {view === "planning" && (
           <>
-            {/* Week selector */}
-            <div className={`${card} overflow-hidden mb-5`}>
-              <div className="px-4 py-3 flex items-center gap-3 min-h-[60px]">
-                <span className="text-[15px] text-[#8E8E93] w-28 shrink-0">Semana</span>
-                <div className="flex items-center gap-3 flex-1">
-                  <button onClick={prevWeek}
-                    className="w-9 h-9 flex items-center justify-center rounded-full bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[#007AFF] dark:text-[#0A84FF] text-[22px] leading-none font-light shrink-0">‹</button>
-                  <div className="flex-1 text-center">
-                    <div className="text-[15px] font-semibold">
-                      Semana {toTwo(selectedWeek)}
-                      <span className="text-[#8E8E93] font-normal ml-2">{selectedYear}</span>
-                    </div>
-                    <div className="text-[12px] text-[#8E8E93] mt-0.5">{format(start, "dd/MM")} – {format(end, "dd/MM")}</div>
-                  </div>
-                  <button onClick={nextWeek}
-                    className="w-9 h-9 flex items-center justify-center rounded-full bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[#007AFF] dark:text-[#0A84FF] text-[22px] leading-none font-light shrink-0">›</button>
-                </div>
-              </div>
-            </div>
+            {/* Cabeçalho: título "Planejamento" + nav semanal embaixo */}
+            <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
+              <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+                Planejamento
+              </h1>
+              <WeekNav
+                year={selectedYear} week={selectedWeek} start={start} end={end}
+                onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
+              />
+            </header>
 
-            {/* Person cards */}
-            {planGroups.map(g => {
-              const groupTotal = g.rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
-              const isOver = groupTotal > 40;
-              const isFull = groupTotal === 40;
-              return (
-                <div key={g.id} className={`${card} overflow-x-auto mb-3`}>
-                  {/* Person header */}
-                  <div className="px-4 py-3 flex items-center gap-3 border-b border-black/[0.06] dark:border-white/[0.06] bg-[#F9F9F9] dark:bg-[#2C2C2E]/50 min-w-[460px]">
-                    <div className="flex-1">
-                      <Combobox
-                        value={g.person}
-                        onChange={v => setPlanPerson(g.id, v)}
-                        options={people}
-                        placeholder={people.length === 0 ? "Carregando…" : "Selecionar pessoa…"}
-                        className={inputCls}
-                      />
+            {/* Person groups */}
+            <div className="space-y-4">
+              {planGroups.map(g => {
+                const groupTotal = g.rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
+                const isOver = groupTotal > 40;
+                const isFull = groupTotal === 40;
+                return (
+                  <div key={g.id} className={card}>
+                    {/* Person header — pessoa + cap pill + ✕ */}
+                    <div className="px-4 py-3 flex items-center gap-3 border-b border-[var(--border-subtle)]">
+                      <div className="flex-1 min-w-0 max-w-md">
+                        <Combobox
+                          value={g.person}
+                          onChange={v => setPlanPerson(g.id, v)}
+                          options={people}
+                          placeholder={people.length === 0 ? "Carregando…" : "Selecionar pessoa…"}
+                          className={`${inputCls} font-semibold text-[15px]`}
+                        />
+                      </div>
+                      <div className={`text-[12.5px] font-semibold tabular-nums shrink-0 px-2.5 py-1 rounded-md ${
+                        isOver ? "text-[var(--negative)] bg-[var(--negative)]/10"
+                        : isFull ? "text-[var(--positive)] bg-[var(--positive)]/10"
+                        : "text-[var(--text-2)] bg-[var(--surface-alt)]"
+                      }`}>
+                        {groupTotal}/40h
+                      </div>
+                      {planGroups.length > 1 && (
+                        <button onClick={() => removePlanGroup(g.id)}
+                          className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-colors text-[16px] leading-none shrink-0">
+                          ×
+                        </button>
+                      )}
                     </div>
-                    {/* Cap indicator */}
-                    <div className={`text-[13px] font-semibold tabular-nums shrink-0 px-2.5 py-1 rounded-full border ${
-                      isOver ? "text-[#FF3B30] dark:text-[#FF453A] bg-[#FF3B30]/10 border-[#FF3B30]/20"
-                      : isFull ? "text-[#34C759] bg-[#34C759]/10 border-[#34C759]/20"
-                      : "text-[#8E8E93] bg-black/[0.04] dark:bg-white/[0.06] border-transparent"
-                    }`}>
-                      {groupTotal}/40h
-                    </div>
-                    {planGroups.length > 1 && (
-                      <button onClick={() => removePlanGroup(g.id)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full text-[#FF3B30] dark:text-[#FF453A] hover:bg-[#FF3B30]/10 transition-colors text-[18px] leading-none shrink-0">
-                        ×
-                      </button>
-                    )}
-                  </div>
 
-                  {/* Rows */}
-                  <table className="w-full min-w-[460px]">
-                    <thead>
-                      <tr className="border-b border-black/[0.04] dark:border-white/[0.04]">
-                        <th className={th}>Centro de Custo</th>
-                        <th className={th}>Projeto</th>
-                        <th className={`${th} text-center`} style={{ width: "90px" }}>Previstas</th>
-                        <th style={{ width: "36px" }} />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
+                    {/* MOBILE: cards verticais por linha */}
+                    <div className="sm:hidden p-3 space-y-2">
                       {g.rows.map(r => (
-                        <tr key={r.id} className="group">
-                          <td className={td}>
-                            <select value={r.businessUnit} onChange={ev => updatePlanRow(g.id, r.id, "businessUnit", ev.target.value)} className={inputCls}>
-                              {bus.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                          </td>
-                          <td className={td}>
-                            <Combobox
-                              value={r.project}
-                              onChange={v => updatePlanRow(g.id, r.id, "project", v)}
-                              options={projects}
-                              placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
-                              className={inputCls}
-                            />
-                          </td>
-                          <td className={`${td} text-center`}>
-                            <HoursInput
-                              value={r.hours_forecast}
-                              onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)}
-                              placeholder="0"
-                              className={`${inputCls} text-center tabular-nums`}
-                            />
-                          </td>
-                          <td className="pr-3">
+                        <div key={r.id} className="rounded-lg border border-[var(--border-subtle)] p-2.5 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <Combobox
+                                value={r.project}
+                                onChange={v => updatePlanRow(g.id, r.id, "project", v)}
+                                options={projects}
+                                placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
+                                className={`${inputCls} font-medium`}
+                              />
+                            </div>
                             <button onClick={() => removePlanRow(g.id, r.id)}
-                              className="w-6 h-6 flex items-center justify-center rounded-full text-[#FF3B30] dark:text-[#FF453A] opacity-0 group-hover:opacity-100 hover:bg-[#FF3B30]/10 transition-all text-[18px] leading-none">
+                              className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[16px] leading-none shrink-0">
                               ×
                             </button>
-                          </td>
-                        </tr>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <select value={r.businessUnit} onChange={ev => updatePlanRow(g.id, r.id, "businessUnit", ev.target.value)}
+                              className="flex-1 bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1">
+                              {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                            </select>
+                            <div className="w-24">
+                              <HoursInput
+                                value={r.hours_forecast}
+                                onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)}
+                                placeholder="0"
+                                className={`${inputCls} text-right tabular-nums`}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                      <button onClick={() => addPlanRow(g.id)}
+                        className="w-full py-2 rounded-lg border border-dashed border-[var(--border-strong)] text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+                        + Adicionar projeto
+                      </button>
+                    </div>
 
-                  {/* Add row within group */}
-                  <div className="px-4 py-2.5 border-t border-black/[0.04] dark:border-white/[0.04] min-w-[460px]">
-                    <button onClick={() => addPlanRow(g.id)}
-                      className="text-[#007AFF] dark:text-[#0A84FF] text-[15px] font-medium">
-                      + Adicionar linha
-                    </button>
+                    {/* DESKTOP: tabela compacta */}
+                    <div className="hidden sm:block">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-[var(--border-subtle)]">
+                            <th className={th} style={{ minWidth: 200 }}>Projeto</th>
+                            <th className={th}>Centro de Custo</th>
+                            <th className={`${th} text-right`} style={{ width: 110 }}>Previstas</th>
+                            <th style={{ width: 36 }} />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-subtle)]">
+                          {g.rows.map(r => (
+                            <tr key={r.id} className="group hover:bg-[var(--surface-alt)]/60 transition-colors">
+                              <td className={td}>
+                                <Combobox
+                                  value={r.project}
+                                  onChange={v => updatePlanRow(g.id, r.id, "project", v)}
+                                  options={projects}
+                                  placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
+                                  className={`${inputCls} font-medium`}
+                                />
+                              </td>
+                              <td className={td}>
+                                <select value={r.businessUnit} onChange={ev => updatePlanRow(g.id, r.id, "businessUnit", ev.target.value)}
+                                  className="bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1 px-1 rounded hover:bg-[var(--surface-alt)]">
+                                  {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                                </select>
+                              </td>
+                              <td className={`${td} text-right`}>
+                                <HoursInput
+                                  value={r.hours_forecast}
+                                  onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)}
+                                  placeholder="0"
+                                  className={`${inputCls} text-right tabular-nums`}
+                                />
+                              </td>
+                              <td className="pr-3 text-right">
+                                <button onClick={() => removePlanRow(g.id, r.id)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] opacity-0 group-hover:opacity-100 hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-all text-[16px] leading-none">
+                                  ×
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-[var(--border-subtle)]">
+                            <td colSpan={4} className="p-0">
+                              <button onClick={() => addPlanRow(g.id)}
+                                className="w-full px-4 py-2.5 text-left text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+                                + Adicionar projeto
+                              </button>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
 
-            {/* Add person */}
+            {/* Add person — bloco ghost no fim */}
             <button onClick={addPlanGroup}
-              className="w-full py-4 rounded-2xl border-2 border-dashed border-[#007AFF]/25 dark:border-[#0A84FF]/25 text-[#007AFF] dark:text-[#0A84FF] text-[15px] font-medium mb-5 hover:border-[#007AFF]/50 dark:hover:border-[#0A84FF]/50 hover:bg-[#007AFF]/[0.03] transition-all">
+              className="w-full py-3 rounded-lg border border-dashed border-[var(--border-strong)] text-[14px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
               + Adicionar pessoa
             </button>
 
-            {/* Save */}
-            <button onClick={savePlan} disabled={saving} className={btnBlue}>
-              {saving ? "Salvando…" : "Salvar Planejamento"}
-            </button>
-
-            {/* Reset */}
-            <button onClick={() => { if (window.confirm("Limpar todo o planejamento?")) setPlanGroups([blankPlanGroup()]); }}
-              className="w-full mt-2 py-3 text-[15px] text-[#FF3B30] dark:text-[#FF453A] font-medium transition-opacity hover:opacity-70">
-              Limpar
-            </button>
+            {/* Ação primária + reset discreto */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <button onClick={() => { if (window.confirm("Limpar todo o planejamento?")) setPlanGroups([blankPlanGroup()]); }}
+                className="px-3 py-2 rounded-md text-[13px] text-[var(--text-3)] hover:text-[var(--negative)] transition-colors">
+                Limpar planejamento
+              </button>
+              <button onClick={savePlan} disabled={saving} className={btnBlue}>
+                {saving ? "Salvando…" : "→ Salvar planejamento"}
+              </button>
+            </div>
           </>
         )}
 
@@ -1190,18 +1507,18 @@ export default function TimesheetApp() {
             {/* Records */}
             <div className={`${card} mt-5`}>
               <button onClick={() => setDbOpen(v => !v)}
-                className="w-full px-5 py-4 flex items-center justify-between rounded-2xl hover:bg-[#F2F2F7]/60 dark:hover:bg-[#2C2C2E]/60 transition-colors">
+                className="w-full px-5 py-4 flex items-center justify-between rounded-2xl hover:bg-[var(--surface-alt)] transition-colors">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-[17px]">Registros</span>
-                  <span className="text-[13px] text-[#8E8E93] font-normal">{db.length}</span>
+                  <span className="text-[13px] text-[var(--text-3)] font-normal">{db.length}</span>
                 </div>
-                <span className="text-[#8E8E93] text-[13px]">{dbOpen ? "▲" : "▼"}</span>
+                <span className="text-[var(--text-3)] text-[13px]">{dbOpen ? "▲" : "▼"}</span>
               </button>
 
               {dbOpen && (
-                <div className="border-t border-black/[0.06] dark:border-white/[0.06]">
+                <div className="border-t border-[var(--border-subtle)]">
                   {/* Filter bar */}
-                  <div className="px-4 py-3 flex items-center gap-2 border-b border-black/[0.04] dark:border-white/[0.04]">
+                  <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--border-subtle)]">
                     <input
                       value={dbFilter}
                       onChange={e => setDbFilter(e.target.value)}
@@ -1209,15 +1526,15 @@ export default function TimesheetApp() {
                       className={`${inputCls} max-w-xs`}
                     />
                     {dbFilter && (
-                      <button onClick={() => setDbFilter("")} className="text-[13px] text-[#8E8E93] hover:text-black dark:hover:text-white">Limpar</button>
+                      <button onClick={() => setDbFilter("")} className="text-[13px] text-[var(--text-3)] hover:text-black dark:hover:text-white">Limpar</button>
                     )}
-                    <span className="ml-auto text-[13px] text-[#8E8E93]">{filteredDb.length} registros</span>
+                    <span className="ml-auto text-[13px] text-[var(--text-3)]">{filteredDb.length} registros</span>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
                       <thead>
-                        <tr className="border-b border-black/[0.06] dark:border-white/[0.06] bg-[#F9F9F9] dark:bg-[#2C2C2E]/40">
+                        <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]">
                           {[
                             { k: "ISO_Week",           label: "Sem." },
                             { k: "Person",             label: "Pessoa" },
@@ -1232,7 +1549,7 @@ export default function TimesheetApp() {
                                 <button onClick={() => toggleSort(col.k)} className="flex items-center gap-1 hover:text-black dark:hover:text-white transition-colors">
                                   {col.label}
                                   {previewSort.field === col.k && (
-                                    <span className="text-[#007AFF] dark:text-[#0A84FF]">{previewSort.dir === "asc" ? "↑" : "↓"}</span>
+                                    <span className="text-[var(--accent)]">{previewSort.dir === "asc" ? "↑" : "↓"}</span>
                                   )}
                                 </button>
                               )}
@@ -1241,12 +1558,12 @@ export default function TimesheetApp() {
                           <th />
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
+                      <tbody className="divide-y divide-[var(--border-subtle)]">
                         {pagedDb.map(r => (
-                          <tr key={r.ID} className="group hover:bg-[#F2F2F7]/50 dark:hover:bg-[#2C2C2E]/50 transition-colors">
+                          <tr key={r.ID} className="group hover:bg-[var(--surface-alt)] transition-colors">
                             {editingId === r.ID ? (
                               <>
-                                <td className={td}><span className="text-[#8E8E93] text-[13px] tabular-nums">W{toTwo(r.ISO_Week)}</span></td>
+                                <td className={td}><span className="text-[var(--text-3)] text-[13px] tabular-nums">W{toTwo(r.ISO_Week)}</span></td>
                                 <td className={td}><Combobox value={editingValues.Person} onChange={v => changeEditing("Person", v)} options={people} placeholder="Pessoa…" className={inputCls} /></td>
                                 <td className={td}><Combobox value={editingValues.Project} onChange={v => changeEditing("Project", v)} options={projects} placeholder="Projeto…" className={inputCls} /></td>
                                 <td className={td}>
@@ -1259,34 +1576,34 @@ export default function TimesheetApp() {
                                 <td className={td} />
                                 <td className={td}>
                                   <div className="flex gap-2">
-                                    <button onClick={saveEditRow} className="px-3 py-1.5 rounded-[8px] bg-[#007AFF] dark:bg-[#0A84FF] text-white text-[13px] font-medium">Salvar</button>
-                                    <button onClick={cancelEditRow} className="px-3 py-1.5 rounded-[8px] bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[13px]">↩</button>
+                                    <button onClick={saveEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--accent)] text-white text-[13px] font-medium">Salvar</button>
+                                    <button onClick={cancelEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--surface-alt)] text-[13px]">↩</button>
                                   </div>
                                 </td>
                               </>
                             ) : (
                               <>
-                                <td className={`${td} tabular-nums text-[#8E8E93] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
+                                <td className={`${td} tabular-nums text-[var(--text-3)] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
                                 <td className={`${td} font-medium text-[15px]`}>{r.Person}</td>
                                 <td className={`${td} text-[15px]`}>{r.Project}</td>
                                 <td className={td}>
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[#8E8E93]">
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">
                                     {r.Business_Unit}
                                   </span>
                                 </td>
                                 <td className={`${td} text-center tabular-nums text-[15px]`}>{r.Hours_Forecast ?? "—"}</td>
                                 <td className={`${td} text-center tabular-nums text-[15px]`}>
-                                  {r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[#8E8E93]">—</span>}
+                                  {r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}
                                 </td>
                                 <td className={`${td} text-center`}>
                                   {r.Hours_Consolidated != null
                                     ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} />
-                                    : <span className="text-[#8E8E93]">—</span>}
+                                    : <span className="text-[var(--text-3)]">—</span>}
                                 </td>
                                 <td className={td}>
                                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[#007AFF] dark:text-[#0A84FF] hover:bg-[#007AFF]/10 text-[13px] transition-colors">✏</button>
-                                    <button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[#FF3B30] dark:text-[#FF453A] hover:bg-[#FF3B30]/10 text-[13px] transition-colors">×</button>
+                                    <button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px] transition-colors">✏</button>
+                                    <button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px] transition-colors">×</button>
                                   </div>
                                 </td>
                               </>
@@ -1295,7 +1612,7 @@ export default function TimesheetApp() {
                         ))}
                         {!pagedDb.length && (
                           <tr>
-                            <td colSpan={8} className="py-12 text-center text-[15px] text-[#8E8E93]">
+                            <td colSpan={8} className="py-12 text-center text-[15px] text-[var(--text-3)]">
                               {db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}
                             </td>
                           </tr>
@@ -1305,8 +1622,8 @@ export default function TimesheetApp() {
                   </div>
 
                   {totalPages > 1 && (
-                    <div className="px-4 py-3 border-t border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between">
-                      <span className="text-[13px] text-[#8E8E93]">Página {currentPage} de {totalPages}</span>
+                    <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                      <span className="text-[13px] text-[var(--text-3)]">Página {currentPage} de {totalPages}</span>
                       <div className="flex gap-2">
                         <button onClick={() => setPreviewPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} className={`${btnGhost} py-1.5 px-3`}>←</button>
                         <button onClick={() => setPreviewPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className={`${btnGhost} py-1.5 px-3`}>→</button>
@@ -1325,7 +1642,7 @@ export default function TimesheetApp() {
       {/* ── Toast ── */}
       {toast && (
         <div className="fixed bottom-28 sm:bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-          <div className="backdrop-blur-2xl bg-black/80 dark:bg-[#F2F2F7]/90 text-white dark:text-black text-[15px] font-medium px-5 py-3 rounded-2xl shadow-2xl whitespace-nowrap">
+          <div className="bg-[var(--text-1)] text-[var(--canvas)] text-[14px] font-medium px-4 py-2.5 rounded-lg shadow-lg whitespace-nowrap">
             {toast}
           </div>
         </div>
@@ -1340,7 +1657,7 @@ export default function TimesheetApp() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-semibold text-[17px]">Configurações</h2>
               <button onClick={() => setSettingsOpen(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[#8E8E93] hover:text-black dark:hover:text-white text-[18px] leading-none">
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--surface-alt)] text-[var(--text-3)] hover:text-black dark:hover:text-white text-[18px] leading-none">
                 ×
               </button>
             </div>
@@ -1348,7 +1665,7 @@ export default function TimesheetApp() {
             {/* Token section */}
             <div className={`${card} overflow-hidden mb-5`} style={{background: ""}}>
               <div className="px-4 pt-3 pb-1">
-                <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider">ClickUp</span>
+                <span className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wider">ClickUp</span>
               </div>
               <div className="px-4 pb-4">
                 <label className="block text-[15px] font-medium mb-2">Token de API</label>
@@ -1359,25 +1676,25 @@ export default function TimesheetApp() {
                     onChange={e => setTokenInput(e.target.value)}
                     placeholder="pk_..."
                     className={`${
-                      "rounded-[10px] border border-black/[0.08] dark:border-white/[0.1] bg-[#F2F2F7] dark:bg-[#2C2C2E] px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] dark:focus:ring-[#0A84FF] w-full"
+                      "rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 w-full"
                     } pr-12 font-mono text-[13px]`}
                     autoComplete="off"
                     spellCheck={false}
                   />
                   <button
                     onClick={() => setShowToken(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E8E93] hover:text-black dark:hover:text-white text-[12px] font-medium transition-colors">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-3)] hover:text-black dark:hover:text-white text-[12px] font-medium transition-colors">
                     {showToken ? "Ocultar" : "Mostrar"}
                   </button>
                 </div>
-                <p className="mt-2 text-[12px] text-[#8E8E93]">
+                <p className="mt-2 text-[12px] text-[var(--text-3)]">
                   Gere em <span className="font-medium">ClickUp → Perfil → Apps → API Token</span>. Salvo apenas neste dispositivo.
                 </p>
               </div>
             </div>
 
             <button onClick={saveSettings}
-              className="w-full flex items-center justify-center py-[14px] rounded-[14px] bg-[#007AFF] dark:bg-[#0A84FF] text-white text-[17px] font-semibold transition-opacity active:opacity-70">
+              className="w-full flex items-center justify-center py-[14px] rounded-[14px] bg-[var(--accent)] text-white text-[17px] font-semibold transition-opacity active:opacity-70">
               Salvar
             </button>
           </div>
@@ -1394,7 +1711,7 @@ export default function TimesheetApp() {
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-semibold text-[17px]">Atalhos</h2>
               <button onClick={() => setHelpOpen(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-[#F2F2F7] dark:bg-[#3A3A3C] text-[#8E8E93] hover:text-black dark:hover:text-white text-[18px] leading-none">
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--surface-alt)] text-[var(--text-3)] hover:text-black dark:hover:text-white text-[18px] leading-none">
                 ×
               </button>
             </div>
@@ -1407,8 +1724,8 @@ export default function TimesheetApp() {
                   ["?  ou  Ctrl+K", "Esta ajuda"],
                 ].map(([k, v]) => (
                   <div key={k} className="px-4 py-3 flex items-center justify-between">
-                    <code className="px-2 py-1 rounded-[6px] bg-[#F2F2F7] dark:bg-[#3A3A3C] font-mono text-[13px]">{k}</code>
-                    <span className="text-[15px] text-[#8E8E93]">{v}</span>
+                    <code className="px-2 py-1 rounded-[6px] bg-[var(--surface-alt)] font-mono text-[13px]">{k}</code>
+                    <span className="text-[15px] text-[var(--text-3)]">{v}</span>
                   </div>
                 ))}
               </div>
@@ -1418,11 +1735,11 @@ export default function TimesheetApp() {
       )}
 
       {/* ── Bottom nav — mobile only ── */}
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 backdrop-blur-2xl bg-white/80 dark:bg-black/80 border-t border-black/[0.08] dark:border-white/[0.08] flex">
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-[var(--surface)]/95 backdrop-blur-md border-t border-[var(--border-subtle)] flex">
         {TABS.map(t => (
           <button key={t.k} onClick={() => setView(t.k)}
             className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors ${
-              view === t.k ? "text-[#007AFF] dark:text-[#0A84FF]" : "text-[#8E8E93]"
+              view === t.k ? "text-[var(--accent)]" : "text-[var(--text-3)]"
             }`}>
             <span className="text-[22px] leading-none">{t.icon}</span>
             {t.label}

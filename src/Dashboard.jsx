@@ -1,58 +1,63 @@
 import React, { useMemo, useState } from "react";
 
-const card  = "bg-white dark:bg-[#1C1C1E] rounded-2xl";
-const th    = "px-4 py-2.5 text-left text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide whitespace-nowrap";
-const td    = "px-4 py-3 text-[15px]";
+const card  = "bg-[var(--surface)] rounded-xl border border-[var(--border-subtle)]";
+const th    = "px-3 py-2 text-left text-[10.5px] font-semibold text-[var(--text-3)] uppercase tracking-[0.06em] whitespace-nowrap";
+const td    = "px-3 py-2 text-[14px]";
 
 function DesvioCell({ d }) {
-  if (d == null) return <span className="text-[#8E8E93]">—</span>;
-  if (d === 0)   return <span className="text-[#34C759] font-semibold tabular-nums">0h</span>;
-  if (d > 0)     return <span className="text-[#FF3B30] dark:text-[#FF453A] font-semibold tabular-nums">+{d}h</span>;
-  return               <span className="text-[#FF9500] dark:text-[#FF9F0A] font-semibold tabular-nums">{d}h</span>;
+  if (d == null) return <span className="text-[var(--text-3)]">—</span>;
+  if (d === 0)   return <span className="text-[var(--positive)] font-semibold tabular-nums">0h</span>;
+  if (d > 0)     return <span className="text-[var(--negative)] font-semibold tabular-nums">+{d}h</span>;
+  return               <span className="text-[var(--warning)] font-semibold tabular-nums">{d}h</span>;
 }
 
 function BarChart({ title, data }) {
   const max = useMemo(() => Math.max(1, ...data.map(d => Math.max(d.forecast || 0, d.consolidated || 0))), [data]);
   return (
     <div className={card}>
-      <div className="px-5 py-4 border-b border-black/[0.06] dark:border-white/[0.06]">
-        <h3 className="font-semibold text-[15px]">{title}</h3>
+      <div className="px-4 py-3 border-b border-[var(--border-subtle)]">
+        <h3 className="font-semibold text-[14px]">{title}</h3>
       </div>
       {!data.length ? (
-        <div className="px-5 py-10 text-[15px] text-[#8E8E93] text-center">Sem dados.</div>
+        <div className="px-4 py-8 text-[14px] text-[var(--text-3)] text-center">Sem dados.</div>
       ) : (
-        <div className="p-5 space-y-4">
+        <div className="p-4 space-y-3">
           {data.map(d => (
             <div key={d.name}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[15px] truncate max-w-[180px]" title={d.name}>{d.name}</span>
-                <div className="flex gap-3 text-[13px] tabular-nums text-[#8E8E93]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[14px] truncate max-w-[180px]" title={d.name}>{d.name}</span>
+                <div className="flex gap-3 text-[12px] tabular-nums text-[var(--text-3)]">
                   {d.consolidated != null && (
-                    <span className="text-black dark:text-white font-semibold">{d.consolidated}h real</span>
+                    <span className="text-[var(--text-1)] font-semibold">{d.consolidated}h real</span>
                   )}
                   <span>{d.forecast}h prev</span>
                 </div>
               </div>
-              <div className="flex gap-0.5 h-2 rounded-full overflow-hidden bg-[#F2F2F7] dark:bg-[#3A3A3C]">
+              <div className="flex gap-0.5 h-1.5 rounded-full overflow-hidden bg-[var(--surface-alt)]">
                 <div
-                  className="h-full rounded-full bg-black dark:bg-white transition-all"
+                  className="h-full rounded-full bg-[var(--accent)] transition-all"
                   style={{ width: `${Math.round((d.forecast / max) * 100)}%`, minWidth: d.forecast > 0 ? 2 : 0 }}
                 />
                 {d.consolidated != null && (
                   <div
-                    className={`h-full rounded-full opacity-70 transition-all ${d.consolidated > d.forecast ? "bg-[#FF3B30] dark:bg-[#FF453A]" : "bg-[#34C759] dark:bg-[#30D158]"}`}
-                    style={{ width: `${Math.round((d.consolidated / max) * 100)}%`, minWidth: d.consolidated > 0 ? 2 : 0 }}
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.round((d.consolidated / max) * 100)}%`,
+                      minWidth: d.consolidated > 0 ? 2 : 0,
+                      backgroundColor: d.consolidated > d.forecast ? 'var(--negative)' : 'var(--positive)',
+                      opacity: 0.85,
+                    }}
                   />
                 )}
               </div>
             </div>
           ))}
-          <div className="flex gap-5 pt-1 text-[12px] text-[#8E8E93]">
+          <div className="flex gap-4 pt-1 text-[11px] text-[var(--text-3)]">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2 rounded-full bg-black dark:bg-white inline-block" />Previsto
+              <span className="w-3 h-1.5 rounded-full bg-[var(--accent)] inline-block" />Previsto
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2 rounded-full bg-[#34C759] inline-block opacity-70" />Realizado
+              <span className="w-3 h-1.5 rounded-full inline-block" style={{ backgroundColor: 'var(--positive)', opacity: 0.85 }} />Realizado
             </span>
           </div>
         </div>
@@ -64,10 +69,10 @@ function BarChart({ title, data }) {
 // ─── Vertical Bar Chart (gráfico de barras vertical) ────────────────────────
 // Cores no estilo Apple/iOS (consistente com o app)
 const PALETTE = [
-  '#7C7CFF', '#FF6B6B', '#4ECDC4', '#FFB84C', '#A29BFE',
-  '#55EFC4', '#FD79A8', '#74B9FF', '#FFEAA7', '#81ECEC',
-  '#FAB1A0', '#FAD390', '#6C5CE7', '#00CEC9', '#E17055',
-  '#0984E3', '#FDCB6E', '#D63031', '#00B894', '#8E44AD',
+  '#7B68EE', '#3B82F6', '#10B981', '#F59E0B', '#EC4899',
+  '#8B5CF6', '#06B6D4', '#84CC16', '#F97316', '#14B8A6',
+  '#A855F7', '#0EA5E9', '#22C55E', '#EAB308', '#EF4444',
+  '#6366F1', '#0284C7', '#65A30D', '#D97706', '#DC2626',
 ];
 
 function VerticalBars({ title, badge, data, formatValue = v => v.toLocaleString('pt-BR') + 'h', maxItems = 20 }) {
@@ -76,21 +81,21 @@ function VerticalBars({ title, badge, data, formatValue = v => v.toLocaleString(
 
   return (
     <div className={card}>
-      <div className="px-5 py-4 border-b border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
+      <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2.5">
           <h3 className="font-semibold text-[15px]">{title}</h3>
           {badge && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#7C7CFF]/15 text-[#7C7CFF] uppercase tracking-wider">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] uppercase tracking-wider">
               {badge}
             </span>
           )}
         </div>
         {data.length > maxItems && (
-          <span className="text-[11px] text-[#8E8E93]">top {maxItems} de {data.length}</span>
+          <span className="text-[11px] text-[var(--text-3)]">top {maxItems} de {data.length}</span>
         )}
       </div>
       {!shown.length ? (
-        <div className="px-5 py-10 text-[15px] text-[#8E8E93] text-center">Sem dados.</div>
+        <div className="px-5 py-10 text-[15px] text-[var(--text-3)] text-center">Sem dados.</div>
       ) : (
         <div className="px-5 pt-5 pb-3 overflow-x-auto">
           <div className="flex items-end gap-3 min-h-[280px] pb-20" style={{ minWidth: Math.max(shown.length * 64, 400) }}>
@@ -99,14 +104,14 @@ function VerticalBars({ title, badge, data, formatValue = v => v.toLocaleString(
               const color = d.color || PALETTE[i % PALETTE.length];
               return (
                 <div key={d.name} className="flex flex-col items-center flex-1 min-w-[42px] relative">
-                  <span className="text-[11px] tabular-nums text-[#8E8E93] mb-1.5">{formatValue(d.value)}</span>
+                  <span className="text-[11px] tabular-nums text-[var(--text-3)] mb-1.5">{formatValue(d.value)}</span>
                   <div
                     className="w-full rounded-t-[6px] transition-opacity hover:opacity-80"
                     style={{ height: h, backgroundColor: color }}
                     title={`${d.name}: ${formatValue(d.value)}`}
                   />
                   <div className="absolute top-full mt-2 left-1/2 origin-top-left -translate-x-1/2 -rotate-[35deg]">
-                    <span className="text-[11px] text-[#3C3C43] dark:text-[#EBEBF5]/80 whitespace-nowrap block" title={d.name}>
+                    <span className="text-[11px] text-[var(--text-2)] whitespace-nowrap block" title={d.name}>
                       {d.name.length > 28 ? d.name.slice(0, 27) + '…' : d.name}
                     </span>
                   </div>
@@ -139,12 +144,12 @@ function WeeklyBars({ rows, mode = 'forecast' }) {
   }, [rows, mode]);
 
   if (!weeks.length) return null;
-  const accent = mode === 'desvio' ? '#FF3B30' : '#007AFF';
+  const accent = mode === 'desvio' ? 'var(--negative)' : 'var(--accent)';
   return (
     <div className={card}>
-      <div className="px-5 py-4 border-b border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
         <h3 className="font-semibold text-[15px]">Horas por Semana</h3>
-        <span className="text-[11px] text-[#8E8E93] uppercase tracking-wider">
+        <span className="text-[11px] text-[var(--text-3)] uppercase tracking-wider">
           {mode === 'forecast' ? 'previsto' : mode === 'consolidated' ? 'realizado' : 'desvio'}
         </span>
       </div>
@@ -152,12 +157,12 @@ function WeeklyBars({ rows, mode = 'forecast' }) {
         <div className="flex items-end gap-2 min-h-[120px]" style={{ minWidth: weeks.length * 36 }}>
           {weeks.map(({ w, v }) => {
             const h = Math.max(2, Math.round((Math.abs(v) / max) * 110));
-            const color = mode === 'desvio' ? (v > 0 ? '#FF3B30' : v < 0 ? '#FF9500' : '#8E8E93') : accent;
+            const color = mode === 'desvio' ? (v > 0 ? 'var(--negative)' : v < 0 ? 'var(--warning)' : 'var(--text-3)') : accent;
             return (
               <div key={w} className="flex flex-col items-center gap-1.5 flex-1" title={`W${String(w).padStart(2,'0')}: ${v}h`}>
-                <span className="text-[11px] tabular-nums text-[#8E8E93]">{v || ''}</span>
+                <span className="text-[11px] tabular-nums text-[var(--text-3)]">{v || ''}</span>
                 <div className="w-full rounded-t" style={{ height: h, backgroundColor: color, opacity: 0.85 }} />
-                <span className="text-[11px] tabular-nums text-[#8E8E93]">W{String(w).padStart(2,'0')}</span>
+                <span className="text-[11px] tabular-nums text-[var(--text-3)]">W{String(w).padStart(2,'0')}</span>
               </div>
             );
           })}
@@ -226,36 +231,36 @@ function Heatmap({ rows, mode = 'forecast', sort = 'total' }) {
 
   function cellColorForFooter(v) {
     if (!v) return undefined;
-    if (mode === 'desvio') return v > 0 ? '#FF3B30' : '#FF9500';
-    return '#007AFF';
+    if (mode === 'desvio') return v > 0 ? 'var(--negative)' : 'var(--warning)';
+    return 'var(--accent)';
   }
 
   if (!projects.length) {
-    return <div className="px-5 py-10 text-[15px] text-[#8E8E93] text-center">Sem dados para o filtro atual.</div>;
+    return <div className="px-5 py-10 text-[15px] text-[var(--text-3)] text-center">Sem dados para o filtro atual.</div>;
   }
 
   return (
     <div className="overflow-x-auto">
       <table className="text-[12.5px] border-collapse" style={{ minWidth: 200 + weeks.length * 56 }}>
         <thead>
-          <tr className="bg-[#F9F9F9] dark:bg-[#2C2C2E]/60 border-b border-black/[0.06] dark:border-white/[0.06]">
-            <th className="sticky left-0 z-10 bg-[#F9F9F9] dark:bg-[#2C2C2E] px-3 py-2.5 text-left text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide w-[220px]">
+          <tr className="bg-[var(--surface-alt)] border-b border-[var(--border-subtle)]">
+            <th className="sticky left-0 z-10 bg-[var(--surface-alt)] px-3 py-2.5 text-left text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide w-[220px]">
               Projeto
             </th>
             {weeks.map(w => (
-              <th key={w} className="px-1.5 py-2.5 text-center text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide tabular-nums">
+              <th key={w} className="px-1.5 py-2.5 text-center text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide tabular-nums">
                 W{String(w).padStart(2, '0')}
               </th>
             ))}
-            <th className="sticky right-0 z-10 bg-[#F9F9F9] dark:bg-[#2C2C2E] px-3 py-2.5 text-right text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide">
+            <th className="sticky right-0 z-10 bg-[var(--surface-alt)] px-3 py-2.5 text-right text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide">
               Total
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
+        <tbody className="divide-y divide-[var(--border-subtle)]">
           {projects.map(p => (
             <tr key={p} className="group hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
-              <td className="sticky left-0 z-10 bg-white dark:bg-[#1C1C1E] group-hover:bg-[#F8F8FA] dark:group-hover:bg-[#252527] px-3 py-2 text-[13.5px] truncate max-w-[220px]" title={p}>
+              <td className="sticky left-0 z-10 bg-[var(--surface)] group-hover:bg-[var(--surface-alt)] px-3 py-2 text-[13.5px] truncate max-w-[220px]" title={p}>
                 {p}
               </td>
               {weeks.map(w => {
@@ -266,15 +271,15 @@ function Heatmap({ rows, mode = 'forecast', sort = 'total' }) {
                   </td>
                 );
               })}
-              <td className="sticky right-0 z-10 bg-white dark:bg-[#1C1C1E] group-hover:bg-[#F8F8FA] dark:group-hover:bg-[#252527] px-3 py-2 text-right font-semibold tabular-nums">
+              <td className="sticky right-0 z-10 bg-[var(--surface)] group-hover:bg-[var(--surface-alt)] px-3 py-2 text-right font-semibold tabular-nums">
                 {projTotals[p]}h
               </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-black/[0.08] dark:border-white/[0.1] bg-[#F9F9F9] dark:bg-[#2C2C2E]/60">
-            <td className="sticky left-0 bg-[#F9F9F9] dark:bg-[#2C2C2E] px-3 py-2.5 text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide">
+          <tr className="border-t-2 border-[var(--border-strong)] bg-[var(--surface-alt)]">
+            <td className="sticky left-0 bg-[var(--surface-alt)] px-3 py-2.5 text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide">
               Total/semana
             </td>
             {weeks.map(w => (
@@ -282,7 +287,7 @@ function Heatmap({ rows, mode = 'forecast', sort = 'total' }) {
                 {weekTotals[w] || ''}
               </td>
             ))}
-            <td className="sticky right-0 bg-[#F9F9F9] dark:bg-[#2C2C2E] px-3 py-2.5 text-right font-bold tabular-nums">
+            <td className="sticky right-0 bg-[var(--surface-alt)] px-3 py-2.5 text-right font-bold tabular-nums">
               {total}h
             </td>
           </tr>
@@ -461,7 +466,7 @@ export default function Dashboard({ db, projectMeta = {} }) {
   const totalConsolidated = useMemo(() => filtered.reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0), [filtered]);
   const hasData = db && db.length > 0;
 
-  const selectCls = "w-full rounded-[10px] border border-black/[0.08] dark:border-white/[0.1] bg-[#F2F2F7] dark:bg-[#2C2C2E] px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] dark:focus:ring-[#0A84FF]";
+  const selectCls = "w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors";
 
   return (
     <div className="space-y-5">
@@ -470,28 +475,28 @@ export default function Dashboard({ db, projectMeta = {} }) {
       <div className={`${card} p-4`}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr_1fr_auto] items-end">
           <div>
-            <label className="block text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">Centro de Custo</label>
+            <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Centro de Custo</label>
             <select value={unitFilter} onChange={e => setUnitFilter(e.target.value)} className={selectCls}>
               <option value="">Todos</option>
               {allUnits.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">Pessoa</label>
+            <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Pessoa</label>
             <select value={personFilter} onChange={e => setPersonFilter(e.target.value)} className={selectCls}>
               <option value="">Todas</option>
               {allPeople.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">Projeto</label>
+            <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Projeto</label>
             <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className={selectCls}>
               <option value="">Todos</option>
               {allProjects.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">Semana</label>
+            <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Semana</label>
             <select value={weekFilter} onChange={e => setWeekFilter(e.target.value)} className={selectCls}>
               <option value="">Todas</option>
               {allWeeks.map(w => <option key={w} value={String(w)}>Semana {String(w).padStart(2, "0")}</option>)}
@@ -501,25 +506,25 @@ export default function Dashboard({ db, projectMeta = {} }) {
             {(unitFilter || personFilter || projectFilter || weekFilter) ? (
               <button
                 onClick={() => { setUnitFilter(""); setPersonFilter(""); setProjectFilter(""); setWeekFilter(""); }}
-                className="px-4 py-2 rounded-[10px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#007AFF] dark:text-[#0A84FF] text-[15px] font-medium hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] transition-colors w-full sm:w-auto">
+                className="px-4 py-2 rounded-[10px] bg-[var(--surface-alt)] text-[var(--accent)] text-[15px] font-medium hover:bg-[var(--surface-alt)] transition-colors w-full sm:w-auto">
                 ↺ Limpar
               </button>
             ) : (
-              <span className="hidden lg:inline-block text-[12px] text-[#8E8E93] px-2">
+              <span className="hidden lg:inline-block text-[12px] text-[var(--text-3)] px-2">
                 {filtered.length} de {(db || []).length} registros
               </span>
             )}
           </div>
         </div>
         {(unitFilter || personFilter || projectFilter || weekFilter) && (
-          <div className="mt-2 text-[12px] text-[#8E8E93]">
+          <div className="mt-2 text-[12px] text-[var(--text-3)]">
             {filtered.length} de {(db || []).length} registros após filtros
           </div>
         )}
       </div>
 
       {!hasData && (
-        <div className="py-16 text-center text-[15px] text-[#8E8E93]">
+        <div className="py-16 text-center text-[15px] text-[var(--text-3)]">
           Use "Carregar Semana" ou "Carregar Ano" para ver os dados.
         </div>
       )}
@@ -532,31 +537,31 @@ export default function Dashboard({ db, projectMeta = {} }) {
               {
                 label: 'Horas Previstas no Período',
                 value: totalForecast.toLocaleString('pt-BR') + 'h',
-                color: 'text-[#7C7CFF]',
-                accent: '#7C7CFF',
+                color: 'text-[var(--accent)]',
+                accent: 'var(--accent)',
               },
               {
                 label: 'Horas Realizadas no Período',
                 value: totalConsolidated > 0 ? totalConsolidated.toLocaleString('pt-BR') + 'h' : '—',
-                color: 'text-[#34C759]',
-                accent: '#34C759',
+                color: 'text-[var(--positive)]',
+                accent: 'var(--positive)',
               },
               {
                 label: 'Projetos Ativos no Período',
                 value: projetosAtivos.toString(),
-                color: 'text-[#FF9500]',
-                accent: '#FF9500',
+                color: 'text-[var(--warning)]',
+                accent: 'var(--warning)',
               },
               {
                 label: 'Pessoas Alocadas no Período',
                 value: pessoasAlocadas.toString(),
-                color: 'text-[#A29BFE]',
-                accent: '#A29BFE',
+                color: 'text-[var(--accent)]',
+                accent: 'var(--accent)',
               },
             ].map(k => (
               <div key={k.label} className={`${card} relative px-5 py-4 overflow-hidden`}>
                 <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: k.accent }} />
-                <div className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">{k.label}</div>
+                <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">{k.label}</div>
                 <div className={`text-[32px] font-semibold tabular-nums leading-none ${k.color}`}>{k.value}</div>
               </div>
             ))}
@@ -565,12 +570,12 @@ export default function Dashboard({ db, projectMeta = {} }) {
           {/* Horas Realizadas por Projeto (vertical, excl internos opcional) */}
           <div>
             <div className="flex items-center justify-end mb-2 px-1">
-              <label className="text-[12px] text-[#8E8E93] inline-flex items-center gap-1.5 cursor-pointer select-none">
+              <label className="text-[12px] text-[var(--text-3)] inline-flex items-center gap-1.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={includeInternos}
                   onChange={e => setIncludeInternos(e.target.checked)}
-                  className="accent-[#007AFF]"
+                  className="accent-[var(--accent)]"
                 />
                 incluir projetos internos
               </label>
@@ -601,10 +606,10 @@ export default function Dashboard({ db, projectMeta = {} }) {
 
           {/* Detalhamento Projeto × Semana (mantido como visão avançada) */}
           <div className={card}>
-            <div className="px-5 py-4 border-b border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between flex-wrap gap-3">
+            <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-3">
               <h3 className="font-semibold text-[15px]">Detalhamento Projeto × Semana</h3>
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="inline-flex bg-[#E5E5EA] dark:bg-[#3A3A3C] rounded-[9px] p-[2px] gap-[2px]">
+                <div className="inline-flex bg-[var(--surface-alt)] rounded-md p-0.5 gap-0.5 border border-[var(--border-subtle)]">
                   {[
                     { k: 'forecast',     label: 'Previsto' },
                     { k: 'consolidated', label: 'Realizado' },
@@ -612,13 +617,13 @@ export default function Dashboard({ db, projectMeta = {} }) {
                   ].map(o => (
                     <button key={o.k} onClick={() => setHmMode(o.k)}
                       className={`px-3 py-1 rounded-[7px] text-[12px] font-medium transition-all ${
-                        hmMode === o.k ? 'bg-white dark:bg-[#636366] text-black dark:text-white shadow-sm' : 'text-[#3C3C43] dark:text-[#EBEBF5]/70'
+                        hmMode === o.k ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-2)] hover:text-[var(--text-1)]'
                       }`}>
                       {o.label}
                     </button>
                   ))}
                 </div>
-                <select value={hmSort} onChange={e => setHmSort(e.target.value)} className="text-[12px] rounded-[9px] border border-black/[0.08] dark:border-white/[0.1] bg-[#F2F2F7] dark:bg-[#2C2C2E] px-2 py-1">
+                <select value={hmSort} onChange={e => setHmSort(e.target.value)} className="text-[12px] rounded-[9px] border border-black/[0.08] dark:border-white/[0.1] bg-[var(--surface-alt)] px-2 py-1">
                   <option value="total">Sort: Total</option>
                   <option value="recente">Sort: Semana recente</option>
                   <option value="name">Sort: Nome</option>
@@ -634,22 +639,22 @@ export default function Dashboard({ db, projectMeta = {} }) {
           {/* Comparativo previsão vs real */}
           {byPerson.some(p => p.consolidated != null) && (
             <div className={card}>
-              <div className="px-5 py-4 border-b border-black/[0.06] dark:border-white/[0.06]">
+              <div className="px-5 py-4 border-b border-[var(--border-subtle)]">
                 <h3 className="font-semibold text-[15px]">Comparativo por Pessoa</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-black/[0.06] dark:border-white/[0.06] bg-[#F9F9F9] dark:bg-[#2C2C2E]/40">
+                    <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]/40">
                       <th className={th}>Pessoa</th>
                       <th className={`${th} text-right`}>Previstas</th>
                       <th className={`${th} text-right`}>Realizadas</th>
                       <th className={`${th} text-right`}>Desvio</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
+                  <tbody className="divide-y divide-[var(--border-subtle)]">
                     {byPerson.map(p => (
-                      <tr key={p.name} className="hover:bg-[#F2F2F7]/50 dark:hover:bg-[#2C2C2E]/50 transition-colors">
+                      <tr key={p.name} className="hover:bg-[var(--surface-alt)] transition-colors">
                         <td className={`${td} font-medium`}>{p.name}</td>
                         <td className={`${td} text-right tabular-nums`}>{p.forecast}h</td>
                         <td className={`${td} text-right tabular-nums`}>{p.consolidated != null ? `${p.consolidated}h` : "—"}</td>
@@ -667,26 +672,26 @@ export default function Dashboard({ db, projectMeta = {} }) {
           {/* Semanas sem consolidado */}
           {openWeeks.length > 0 && (
             <div className={card}>
-              <div className="px-5 py-4 border-b border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
                 <h3 className="font-semibold text-[15px]">Semanas sem Consolidado</h3>
-                <span className="text-[13px] font-semibold px-2.5 py-1 rounded-full bg-[#FF9500]/10 text-[#FF9500] border border-[#FF9500]/20">
+                <span className="text-[12.5px] font-semibold px-2.5 py-1 rounded-md bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)]/20">
                   {openWeeks.length}
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-black/[0.06] dark:border-white/[0.06] bg-[#F9F9F9] dark:bg-[#2C2C2E]/40">
+                    <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]/40">
                       <th className={th}>Semana</th>
                       <th className={th}>Ano</th>
                       <th className={th}>Pessoa</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
+                  <tbody className="divide-y divide-[var(--border-subtle)]">
                     {openWeeks.map(x => (
-                      <tr key={x.key} className="hover:bg-[#F2F2F7]/50 dark:hover:bg-[#2C2C2E]/50 transition-colors">
+                      <tr key={x.key} className="hover:bg-[var(--surface-alt)] transition-colors">
                         <td className={`${td} tabular-nums font-medium`}>W{String(x.week).padStart(2, "0")}</td>
-                        <td className={`${td} tabular-nums text-[#8E8E93]`}>{x.year}</td>
+                        <td className={`${td} tabular-nums text-[var(--text-3)]`}>{x.year}</td>
                         <td className={`${td} font-medium`}>{x.person}</td>
                       </tr>
                     ))}
