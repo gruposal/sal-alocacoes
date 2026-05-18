@@ -10,10 +10,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  // req.url = /api/clickup/v2/<path>?<qs>  →  extrai tudo após /api/clickup
+  // req.url = /api/clickup/<path>?<qs>  →  extrai tudo após /api/clickup e prepende /api/v2
   const prefix = '/api/clickup';
   const afterPrefix = req.url.startsWith(prefix) ? req.url.slice(prefix.length) : req.url;
-  const url = `https://api.clickup.com${afterPrefix}`;
+  const url = `https://api.clickup.com/api/v2${afterPrefix}`;
 
   const hasBody = !['GET', 'HEAD'].includes(req.method);
   const body = hasBody && req.body != null
