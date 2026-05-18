@@ -1,5 +1,6 @@
 // Vercel Serverless Function — proxy ClickUp.
-// Browser chama /api/clickup/<path-completo>?<query> → reescreve para
+// Browser chama /api/clickup/v2/<path>?<query>
+// Esta função recebe a requisição via rewrite em vercel.json e encaminha para
 // https://api.clickup.com/api/v2/<path>?<query> com Authorization injetada server-side.
 
 export default async function handler(req, res) {
@@ -9,17 +10,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  const segments = Array.isArray(req.query.path) ? req.query.path : [req.query.path];
-  const upstreamPath = '/' + segments.join('/');
-
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(req.query)) {
-    if (key === 'path') continue;
-    if (Array.isArray(value)) value.forEach(v => params.append(key, v));
-    else if (value != null) params.append(key, value);
-  }
-  const qs = params.toString();
-  const url = `https://api.clickup.com/api/v2${upstreamPath}${qs ? '?' + qs : ''}`;
+  // req.url = /api/clickup/v2/<path>?<qs>  →  extrai tudo após /api/clickup
+  const prefix = '/api/clickup';
+  const afterPrefix = req.url.startsWith(prefix) ? req.url.slice(prefix.length) : req.url;
+  const url = `https://api.clickup.com${afterPrefix}`;
 
   const hasBody = !['GET', 'HEAD'].includes(req.method);
   const body = hasBody && req.body != null
