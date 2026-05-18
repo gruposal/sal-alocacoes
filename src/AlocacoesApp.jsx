@@ -461,7 +461,7 @@ function DesvioCell({ forecast, consolidated, onReplicate }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function TimesheetApp() {
+export default function AlocacoesApp() {
   // Restaura listas + db do localStorage para evitar re-fetch em toda recarga.
   // Refresh em background dispara só se cache > 5min (controlado nos effects abaixo).
   // Defesa: cada cache valida tipo antes de usar — se estrutura corrompida, ignora silenciosamente.
@@ -514,7 +514,12 @@ export default function TimesheetApp() {
   const [previewPageSize]                   = useState(15);
   const [editingId, setEditingId]           = useState(null);
   const [editingValues, setEditingValues]   = useState(null);
-  const [view, setView]                     = useState(persisted.view === "directory" ? "timesheet" : (persisted.view || "timesheet"));
+  const [view, setView]                     = useState(() => {
+    const v = persisted.view;
+    // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
+    if (v === "directory" || v === "timesheet" || !v) return "lancar";
+    return v;
+  });
   const [theme, setTheme]                   = useState(() => {
     if (typeof window === "undefined") return "light";
     const s = persisted.theme || localStorage.getItem("theme");
@@ -524,19 +529,8 @@ export default function TimesheetApp() {
   const [toast, setToast]       = useState("");
   const toastRef                = useRef(null);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tokenInput, setTokenInput]     = useState(() => localStorage.getItem('cu:token') || '');
-  const [showToken, setShowToken]       = useState(false);
-  const hasToken = !!(localStorage.getItem('cu:token') || import.meta.env.VITE_CLICKUP_TOKEN);
-
-  function saveSettings() {
-    const t = tokenInput.trim();
-    if (t) localStorage.setItem('cu:token', t);
-    else localStorage.removeItem('cu:token');
-    setSettingsOpen(false);
-    showToast('Configurações salvas.');
-    loadLists();
-  }
+  // Token agora é injetado pelo proxy /api/clickup server-side. Limpa resíduo antigo do localStorage.
+  useEffect(() => { try { localStorage.removeItem('cu:token'); } catch {} }, []);
 
   const blankPlanRow   = () => ({ id: uid(), businessUnit: bus[0] || "", project: "", hours_forecast: "" });
   const blankPlanGroup = () => ({ id: uid(), person: "", rows: [blankPlanRow()] });
@@ -569,11 +563,16 @@ export default function TimesheetApp() {
   }, [planGroups]);
 
   useEffect(() => {
+    planGroups.forEach(g => { if (g.person) loadPlanRowsForGroup(g.id, g.person, selectedYear, selectedWeek); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear, selectedWeek]);
+
+  useEffect(() => {
     function onKey(e) {
       if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); setHelpOpen(v => !v); }
       if (e.key === "?" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setHelpOpen(v => !v); }
       if (e.shiftKey) {
-        if (e.key === "1") { e.preventDefault(); setView("timesheet"); }
+        if (e.key === "1") { e.preventDefault(); setView("lancar"); }
         if (e.key === "2") { e.preventDefault(); setView("planning"); }
         if (e.key === "3") { e.preventDefault(); setView("dashboard"); }
       }
@@ -689,7 +688,7 @@ export default function TimesheetApp() {
   }, []);
 
   // Quando entra na aba Dashboard, garante que o ano corrente está em `db`.
-  // Se `db` representa só uma semana (porque o user veio do Timesheet), recarrega o ano.
+  // Se `db` representa só uma semana (porque o user veio da aba Lançar), recarrega o ano.
   useEffect(() => {
     if (view !== 'dashboard') return;
     const wantScope = `year-${selectedYear}`;
@@ -714,10 +713,10 @@ export default function TimesheetApp() {
     if (people.length && person && !people.includes(person)) setPerson("");
   }, [people]);
 
-  // Auto-carrega dados do ClickUp quando pessoa, ano ou semana mudam (apenas na aba Timesheet).
+  // Auto-carrega dados do ClickUp quando pessoa, ano ou semana mudam (apenas na aba Lançar).
   // Silent = não abre o painel de DB nem mostra toast — UX de "abriu/selecionou, já tá lá".
   useEffect(() => {
-    if (view !== "timesheet" || !person) return;
+    if (view !== "lancar" || !person) return;
     loadFromClickUp({ silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [person, selectedYear, selectedWeek, view]);
@@ -774,7 +773,44 @@ export default function TimesheetApp() {
   // ─── Planning (multi-person) ──────────────────────────────────────────────
   function addPlanGroup() { setPlanGroups(p => [...p, blankPlanGroup()]); }
   function removePlanGroup(gid) { setPlanGroups(p => p.filter(g => g.id !== gid)); }
-  function setPlanPerson(gid, person) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, person } : g)); }
+  async function loadPlanRowsForGroup(gid, person, year, week) {
+    if (!person) return;
+    try {
+      const yearReady = dbScope === `year-${year}`;
+      let rows;
+      if (yearReady) {
+        rows = db.filter(r => r.Year === year && r.ISO_Week === week);
+      } else {
+        setLoadingWeek(true);
+        rows = await loadForWeek(year, week);
+        mergeWeekIntoDb(year, week, rows);
+        mergeRowsIntoCcMap(rows);
+      }
+      const mine = rows.filter(r => r.Person === person);
+      setPlanGroups(p => p.map(g => {
+        if (g.id !== gid || g.person !== person) return g;
+        if (!mine.length) return { ...g, rows: [blankPlanRow()] };
+        return {
+          ...g,
+          rows: mine.map(r => ({
+            id: uid(),
+            project: r.Project,
+            businessUnit: r.Business_Unit || (bus[0] || ""),
+            hours_forecast: r.Hours_Forecast ?? "",
+          })),
+        };
+      }));
+    } catch (e) {
+      console.warn(e);
+      showToast("Erro ao carregar lançamentos da semana.");
+    } finally {
+      setLoadingWeek(false);
+    }
+  }
+  async function setPlanPerson(gid, person) {
+    setPlanGroups(p => p.map(g => g.id === gid ? { ...g, person, rows: [blankPlanRow()] } : g));
+    await loadPlanRowsForGroup(gid, person, selectedYear, selectedWeek);
+  }
   function addPlanRow(gid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: [...g.rows, blankPlanRow()] } : g)); }
   function removePlanRow(gid, rid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: g.rows.filter(r => r.id !== rid) } : g)); }
   function updatePlanRow(gid, rid, field, value) {
@@ -969,7 +1005,7 @@ export default function TimesheetApp() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.length ? db : []), "Registros");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(people.map(p => ({ Pessoa: p }))), "Pessoas");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(projects.map(p => ({ Projeto: p }))), "Projetos");
-    XLSX.writeFile(wb, `Timesheet_${selectedYear}_${format(new Date(), "yyyyMMdd")}.xlsx`);
+    XLSX.writeFile(wb, `SAL-Alocacoes_${selectedYear}_${format(new Date(), "yyyyMMdd")}.xlsx`);
   }
 
   // ─── Editorial design tokens (warm off-white + serif display) ────────────
@@ -983,7 +1019,7 @@ export default function TimesheetApp() {
   const sep       = "divide-y divide-[var(--border-subtle)]";
 
   const TABS = [
-    { k: "timesheet", label: "Lançar",        icon: "⏱" },
+    { k: "lancar",    label: "Lançar",        icon: "⏱" },
     { k: "planning",  label: "Planejamento",  icon: "📅" },
     { k: "dashboard", label: "Visão Geral",   icon: "📊" },
   ];
@@ -1003,7 +1039,7 @@ export default function TimesheetApp() {
           <span className="text-[15px] tracking-tight shrink-0">
             <span className="font-semibold">Grupo SAL</span>
             <span className="text-[var(--text-3)] mx-2">·</span>
-            <span className="text-[var(--text-2)]">Timesheet</span>
+            <span className="text-[var(--text-2)]">Alocações</span>
           </span>
 
           {/* Tabs — desktop, underline style */}
@@ -1029,11 +1065,6 @@ export default function TimesheetApp() {
               className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-md text-[13px] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors">
               Excel
             </button>
-            <button onClick={() => setSettingsOpen(true)}
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors text-[14px] ${!hasToken ? "text-[var(--warning)]" : "text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)]"}`}
-              title="Configurações">
-              ⚙
-            </button>
             <button onClick={() => setHelpOpen(v => !v)}
               className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors text-[14px]">
               ?
@@ -1049,21 +1080,10 @@ export default function TimesheetApp() {
       {/* ── Main ── */}
       <main className="w-full px-6 sm:px-10 lg:px-16 xl:px-24 py-8 pb-32 sm:pb-16 space-y-10">
 
-        {!hasToken && (
-          <button onClick={() => setSettingsOpen(true)}
-            className="w-full mb-5 px-4 py-3 rounded-lg bg-[var(--warning)]/10 border border-[var(--warning)]/25 text-left flex items-center gap-3 hover:bg-[var(--warning)]/15 transition-colors">
-            <span className="text-[20px] leading-none shrink-0">⚠️</span>
-            <div>
-              <div className="text-[14px] font-semibold text-[var(--warning)]">Token ClickUp não configurado</div>
-              <div className="text-[12.5px] text-[var(--warning)]/80">Toque para configurar →</div>
-            </div>
-          </button>
-        )}
-
         {/* ══════════════════════════════════════════
             LANÇAR  (jornada do colaborador)
         ══════════════════════════════════════════ */}
-        {view === "timesheet" && (
+        {view === "lancar" && (
           <>
             {/* Cabeçalho: Pessoa = título-botão grande (linha 1) | Semana+Status+Atualizar juntos (linha 2) */}
             <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
@@ -1644,59 +1664,6 @@ export default function TimesheetApp() {
         <div className="fixed bottom-28 sm:bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
           <div className="bg-[var(--text-1)] text-[var(--canvas)] text-[14px] font-medium px-4 py-2.5 rounded-lg shadow-lg whitespace-nowrap">
             {toast}
-          </div>
-        </div>
-      )}
-
-      {/* ── Settings modal ── */}
-      {settingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSettingsOpen(false)} />
-          <div className={`relative w-full sm:max-w-sm ${card} pt-6 pb-8 px-6 shadow-2xl rounded-t-3xl sm:rounded-2xl`}>
-            <div className="sm:hidden w-10 h-1 rounded-full bg-[#8E8E93]/40 mx-auto mb-6" />
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-semibold text-[17px]">Configurações</h2>
-              <button onClick={() => setSettingsOpen(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--surface-alt)] text-[var(--text-3)] hover:text-black dark:hover:text-white text-[18px] leading-none">
-                ×
-              </button>
-            </div>
-
-            {/* Token section */}
-            <div className={`${card} overflow-hidden mb-5`} style={{background: ""}}>
-              <div className="px-4 pt-3 pb-1">
-                <span className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wider">ClickUp</span>
-              </div>
-              <div className="px-4 pb-4">
-                <label className="block text-[15px] font-medium mb-2">Token de API</label>
-                <div className="relative">
-                  <input
-                    type={showToken ? "text" : "password"}
-                    value={tokenInput}
-                    onChange={e => setTokenInput(e.target.value)}
-                    placeholder="pk_..."
-                    className={`${
-                      "rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 w-full"
-                    } pr-12 font-mono text-[13px]`}
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                  <button
-                    onClick={() => setShowToken(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-3)] hover:text-black dark:hover:text-white text-[12px] font-medium transition-colors">
-                    {showToken ? "Ocultar" : "Mostrar"}
-                  </button>
-                </div>
-                <p className="mt-2 text-[12px] text-[var(--text-3)]">
-                  Gere em <span className="font-medium">ClickUp → Perfil → Apps → API Token</span>. Salvo apenas neste dispositivo.
-                </p>
-              </div>
-            </div>
-
-            <button onClick={saveSettings}
-              className="w-full flex items-center justify-center py-[14px] rounded-[14px] bg-[var(--accent)] text-white text-[17px] font-semibold transition-opacity active:opacity-70">
-              Salvar
-            </button>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
-import TimesheetApp from "./TimesheetApp.jsx";
+import AlocacoesApp from "./AlocacoesApp.jsx";
 
 export default function App() {
-  return <TimesheetApp />;
+  return <AlocacoesApp />;
 }

@@ -43,7 +43,7 @@ style: |
 
 <!-- _class: cover -->
 
-# Timesheet + ClickUp
+# Alocações + ClickUp
 
 Substituição de planilhas por uma interface estruturada
 
@@ -91,7 +91,7 @@ Substituir as planilhas por um **webapp dedicado**, usando o ClickUp como banco 
 ┌──────────────────────┐             ┌────────────────────────────────┐
 │                      │             │           CLICKUP               │
 │   WEBAPP             │   API v2    │                                 │
-│   (React + Vite)     │◀──────────▶│  📋 Timesheet Entries           │
+│   (React + Vite)     │◀──────────▶│  📋 Alocações Entries           │
 │                      │   fetch()   │  👤 People                     │
 │   Client-only        │             │  📁 Projects                   │
 │   Sem servidor       │             │  🏢 Business Units              │
@@ -100,13 +100,13 @@ Substituir as planilhas por um **webapp dedicado**, usando o ClickUp como banco 
 ```
 
 4 listas no ClickUp funcionam como banco de dados.
-A lista `Timesheet Entries` concentra toda a lógica — as outras três são cadastros de referência.
+A lista `Alocações Entries` concentra toda a lógica — as outras três são cadastros de referência.
 
 ---
 
 ## Modelo de dados
 
-Cada linha do timesheet é **um registro único** por pessoa + projeto + semana:
+Cada linha do alocações é **um registro único** por pessoa + projeto + semana:
 
 ```js
 {
@@ -172,7 +172,7 @@ SEXTA — Colaborador consolida o realizado
 
 ## Como fica no ClickUp
 
-Cada linha do timesheet vira uma **task**:
+Cada linha do alocações vira uma **task**:
 
 ```
 📌 2026-W05 | Alice Silva | Google – Brand Film   ← nome = chave única
@@ -388,7 +388,7 @@ src/lib/clickup/
 **3 arquivos novos** — interface:
 
 ```
-src/TimesheetApp.jsx  → roteamento entre visão gestor e visão colaborador
+src/AlocaçõesApp.jsx  → roteamento entre visão gestor e visão colaborador
 src/ManagerView.jsx   → tela de alocação do time (gestor)
 src/CollabView.jsx    → tela de consolidação individual (colaborador)
 src/Dashboard.jsx     → comparativo previsão vs real
@@ -454,13 +454,13 @@ Os campos são encontrados pelo **nome** — devem ser criados no ClickUp com os
 
 **O que criar manualmente (~12 min):**
 
-1. Um **Space** ou **Folder** dedicado — ex: _"Timesheet"_
+1. Um **Space** ou **Folder** dedicado — ex: _"Alocações"_
 2. 4 **Lists:**
-   - `Timesheet Entries` — com os 8 custom fields
+   - `Alocações Entries` — com os 8 custom fields
    - `People` — sem custom fields
    - `Projects` — sem custom fields
    - `Business Units` — sem custom fields
-3. Na list `Timesheet Entries`, os campos com os **nomes exatos:**
+3. Na list `Alocações Entries`, os campos com os **nomes exatos:**
 
 | Campos texto | Campos número |
 |---|---|
@@ -474,7 +474,7 @@ Os campos são encontrados pelo **nome** — devem ser criados no ClickUp com os
 # .env.local — nunca subir para o repositório
 
 VITE_CLICKUP_TOKEN=pk_...        # Token pessoal da conta ClickUp
-VITE_CLICKUP_LIST_ENTRIES=...    # ID da List "Timesheet Entries"
+VITE_CLICKUP_LIST_ENTRIES=...    # ID da List "Alocações Entries"
 VITE_CLICKUP_LIST_PEOPLE=...     # ID da List "People"
 VITE_CLICKUP_LIST_PROJECTS=...   # ID da List "Projects"
 VITE_CLICKUP_LIST_BUS=...        # ID da List "Business Units"

@@ -1,20 +1,12 @@
-const BASE_URL = 'https://api.clickup.com/api/v2';
-
-function getToken() {
-  return (typeof localStorage !== 'undefined' && localStorage.getItem('cu:token'))
-    || import.meta.env.VITE_CLICKUP_TOKEN
-    || '';
-}
+// Browser não fala com api.clickup.com diretamente — passa pelo proxy /api/clickup
+// (Vercel Serverless Function), que injeta a Authorization server-side.
+const BASE_URL = '/api/clickup';
 
 export async function cuFetch(path, options = {}) {
-  const token = getToken();
-  if (!token) throw new Error('Token ClickUp não configurado. Abra as configurações (⚙) e cole seu token.');
-
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
     ...options,
     headers: {
-      Authorization: token,
       'Content-Type': 'application/json',
       ...options.headers,
     },

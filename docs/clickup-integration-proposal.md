@@ -45,7 +45,7 @@ style: |
 
 <!-- _class: cover -->
 
-# Timesheet + ClickUp
+# Alocações + ClickUp
 
 Novo app com ClickUp como único banco de dados
 
@@ -59,7 +59,7 @@ Análise · Jornada de uso · Plano técnico
 ┌──────────────────────┐             ┌────────────────────────────────┐
 │                      │             │           CLICKUP               │
 │   WEBAPP             │   API v2    │                                 │
-│   (React + Vite)     │◀──────────▶│  📋 Timesheet Entries           │
+│   (React + Vite)     │◀──────────▶│  📋 Alocações Entries           │
 │                      │   fetch()   │  👤 People                     │
 │   UI idêntica        │             │  📁 Projects                   │
 │   Lógica idêntica    │             │  🏢 Business Units              │
@@ -122,7 +122,7 @@ Bem dentro do limite de 100 req/min do plano Free.
 
 ## Colaborador — o que aparece no ClickUp
 
-Cada linha do timesheet vira uma task:
+Cada linha do alocações vira uma task:
 
 ```
 📌 2026-W05 | Alice Silva | Branding / Google Brand Film
@@ -157,7 +157,7 @@ _"Quero ver como as horas estão distribuídas"_
 4. Resultado: gráficos e tabelas interativas
 
 **Direto no ClickUp (sem abrir o app):**
-- Cria uma View na List "Timesheet Entries" filtrada por `person`, `project` ou `iso_week`
+- Cria uma View na List "Alocações Entries" filtrada por `person`, `project` ou `iso_week`
 - Usa campos calculados ou exporta para planilha
 - Não depende do app, não consome requisições da API
 
@@ -237,7 +237,7 @@ src/lib/clickup/
 
 **2 arquivos modificados** (cirurgia mínima):
 ```
-src/TimesheetApp.jsx  → 6 funções Supabase → 6 chamadas ClickUp
+src/AlocaçõesApp.jsx  → 6 funções Supabase → 6 chamadas ClickUp
 src/Directory.jsx     → 4 funções Supabase → 4 chamadas ClickUp
 ```
 
@@ -302,7 +302,7 @@ Campos descobertos por nome — portanto, devem ser criados no ClickUp com esses
 
 ```bash
 VITE_CLICKUP_TOKEN=pk_...           # Token pessoal da conta ClickUp
-VITE_CLICKUP_LIST_ENTRIES=...       # ID da List "Timesheet Entries"
+VITE_CLICKUP_LIST_ENTRIES=...       # ID da List "Alocações Entries"
 VITE_CLICKUP_LIST_PEOPLE=...        # ID da List "People"
 VITE_CLICKUP_LIST_PROJECTS=...      # ID da List "Projects"
 VITE_CLICKUP_LIST_BUS=...           # ID da List "Business Units"
@@ -329,13 +329,13 @@ Comparado ao Supabase (2 variáveis), são 3 a mais — mas o setup visual no Cl
 
 **O que criar manualmente (~15 min):**
 
-1. Um **Space** ou **Folder** dedicado (ex: _"Timesheet"_)
+1. Um **Space** ou **Folder** dedicado (ex: _"Alocações"_)
 2. 4 **Lists** dentro dele:
-   - `Timesheet Entries` — com os 13 custom fields
+   - `Alocações Entries` — com os 13 custom fields
    - `People` — sem custom fields
    - `Projects` — sem custom fields
    - `Business Units` — sem custom fields
-3. Na list `Timesheet Entries`, criar os campos com os **nomes exatos**:
+3. Na list `Alocações Entries`, criar os campos com os **nomes exatos**:
 
 | Campos texto | Campos número | Campo data |
 |---|---|---|
@@ -352,7 +352,7 @@ Comparado ao Supabase (2 variáveis), são 3 a mais — mas o setup visual no Cl
 | **3. `fields.js`** | auto-descoberta de field IDs | Baixa |
 | **4. `entries.js`** | todas as operações de leitura/escrita | Alta |
 | **5. `lists.js`** | CRUD de people/projects/BUs | Média |
-| **6. `TimesheetApp.jsx`** | trocar 6 chamadas Supabase | Média |
+| **6. `AlocaçõesApp.jsx`** | trocar 6 chamadas Supabase | Média |
 | **7. `Directory.jsx`** | trocar 4 chamadas Supabase | Baixa |
 | **8. Testes** | fluxo completo do colaborador e gestor | — |
 

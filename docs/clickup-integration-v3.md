@@ -44,7 +44,7 @@ style: |
 
 <!-- _class: cover -->
 
-# Timesheet + ClickUp v3
+# Alocações + ClickUp v3
 
 Previsão de início de semana + Consolidado de fim de semana
 
@@ -129,7 +129,7 @@ O gestor vê o desvio diretamente: previsto 32, realizado 28.
 
 ## Custom fields — 9 campos
 
-**List `Timesheet Entries`:**
+**List `Alocações Entries`:**
 
 | Campo | Tipo ClickUp | Quando é preenchido |
 |---|---|---|
@@ -338,7 +338,7 @@ src/lib/clickup/
 **3 arquivos modificados:**
 
 ```
-src/TimesheetApp.jsx  → UI de entrada com 2 colunas + 2 operações de salvar
+src/AlocaçõesApp.jsx  → UI de entrada com 2 colunas + 2 operações de salvar
 src/Dashboard.jsx     → seção comparativo previsão vs real
 src/Directory.jsx     → trocar 4 chamadas Supabase (igual à v2)
 ```
@@ -423,7 +423,7 @@ Nomes exatos a criar no ClickUp:
 
 ```bash
 VITE_CLICKUP_TOKEN=pk_...           # Token pessoal da conta ClickUp
-VITE_CLICKUP_LIST_ENTRIES=...       # ID da List "Timesheet Entries"
+VITE_CLICKUP_LIST_ENTRIES=...       # ID da List "Alocações Entries"
 VITE_CLICKUP_LIST_PEOPLE=...        # ID da List "People"
 VITE_CLICKUP_LIST_PROJECTS=...      # ID da List "Projects"
 VITE_CLICKUP_LIST_BUS=...           # ID da List "Business Units"
@@ -437,9 +437,9 @@ Continua 5 variáveis — nenhuma mudança em relação à v2.
 
 **O que criar manualmente (~12 min):**
 
-1. Space/Folder: _"Timesheet"_
-2. 4 Lists: `Timesheet Entries`, `People`, `Projects`, `Business Units`
-3. Na list `Timesheet Entries`, 9 campos com nomes exatos:
+1. Space/Folder: _"Alocações"_
+2. 4 Lists: `Alocações Entries`, `People`, `Projects`, `Business Units`
+3. Na list `Alocações Entries`, 9 campos com nomes exatos:
 
 | Campos texto | Campos número |
 |---|---|
@@ -456,12 +456,12 @@ Continua 5 variáveis — nenhuma mudança em relação à v2.
 | **3. `fields.js`** | auto-descoberta de 9 field IDs | Baixa |
 | **4. `entries.js`** | loadForWeek, loadLastYear, upsertForecast, upsertConsolidated | **Alta** |
 | **5. `lists.js`** | CRUD de people/projects/BUs | Média |
-| **6. `TimesheetApp.jsx`** | UI 2 colunas + 2 botões de salvar + cap por coluna | **Alta** |
+| **6. `AlocaçõesApp.jsx`** | UI 2 colunas + 2 botões de salvar + cap por coluna | **Alta** |
 | **7. `Dashboard.jsx`** | comparativo previsão vs real + status da semana | Média |
 | **8. `Directory.jsx`** | trocar 4 chamadas Supabase | Baixa |
 | **9. Testes** | fluxo segunda + sexta, desvio, cap | — |
 
-Fases críticas: **`entries.js`** e **`TimesheetApp.jsx`** — mais trabalho que a v2.
+Fases críticas: **`entries.js`** e **`AlocaçõesApp.jsx`** — mais trabalho que a v2.
 
 ---
 
@@ -487,7 +487,7 @@ Fases críticas: **`entries.js`** e **`TimesheetApp.jsx`** — mais trabalho que
 
 **Para o gestor:** desvio previsão vs real visível no ClickUp e no Dashboard
 
-**Custo adicional vs v2:** `TimesheetApp.jsx` mais complexo, Dashboard ganha seção nova
+**Custo adicional vs v2:** `AlocaçõesApp.jsx` mais complexo, Dashboard ganha seção nova
 
 ---
 

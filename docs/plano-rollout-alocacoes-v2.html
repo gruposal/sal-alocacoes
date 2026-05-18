@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Plano de Rollout — Timesheet | Grupo SAL</title>
+<title>Plano de Rollout — Alocações v2 | Grupo SAL</title>
 <style>
   :root {
     --bg: #fbfbfd; --fg: #1d1d1f; --muted: #6e6e73; --accent: #0066cc;
@@ -21,6 +21,17 @@
   }
   .header .brand { font-weight: 600; font-size: 18px; }
   .header .meta { color: var(--muted); font-size: 14px; }
+  .version-badge {
+    display: inline-block; background: var(--accent); color: white;
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px;
+    letter-spacing: 0.6px; margin-left: 8px; vertical-align: middle;
+  }
+  .changelog {
+    background: #e8f4ff; border-left: 4px solid var(--accent);
+    padding: 14px 20px; border-radius: 6px; margin: 0 0 28px;
+    font-size: 14.5px;
+  }
+  .changelog strong { color: var(--accent); }
   h1 { font-size: 36px; margin: 0 0 8px; letter-spacing: -0.8px; font-weight: 700; }
   h2 { font-size: 24px; margin: 40px 0 14px; color: var(--accent);
         border-bottom: 1px solid var(--line); padding-bottom: 8px; letter-spacing: -0.3px; }
@@ -41,7 +52,7 @@
   th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
   th { background: var(--soft); font-weight: 600; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
-  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
   a:hover { border-bottom-color: var(--accent); }
   strong { font-weight: 600; }
   .footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line);
@@ -56,14 +67,22 @@
 </head><body>
 <div class="container">
 <div class="header">
-  <div class="brand">Grupo SAL · Timesheet</div>
+  <div class="brand">Grupo SAL · Alocações <span class="version-badge">v2</span></div>
   <div class="meta">Plano de migração e rollout · 2026-05-13</div>
 </div>
-<h1>Plano: Consolidação Histórico Planilha → ClickUp + Rollout do App Timesheet</h1>
+<div class="changelog">
+  <strong>Mudanças v1 → v2:</strong>
+  <ul>
+    <li>Números atualizados com base no CSV real: <strong>1.851 linhas, W01–W20</strong> (v1 dizia 875 linhas / W01–W13 por leitura cacheada do Drive)</li>
+    <li>Removido o "gap W14–W20" — não existe; planilha está em dia</li>
+    <li>Nova <strong>Fase A.0</strong>: solução permanente para pessoas/projetos faltantes via <code>ensurePerson</code>/<code>ensureProject</code> dentro do app — evita cadastro manual em 2027 e além</li>
+  </ul>
+</div>
+<h1>Plano: Consolidação Histórico Planilha → ClickUp + Rollout do App Alocações</h1>
 
 <h2>Context</h2>
 
-<p>Hoje o controle de alocação de horas do Grupo SAL vive em <strong><code>00_GRUPO-SAL_CONSOLIDADO_ALOCACAO_2026</code></strong> (Google Sheets), alimentado por 4 planilhas-fonte por unidade de negócio (Branding / Comunicação / Conteúdo / CSC). O webapp Timesheet já está pronto e escreve em ClickUp (<code>LISTA_REGISTRO_ALOCACAO</code> em BACK_OFFICE &gt; [ALOCAÇÕES]), mas só será adotado se <strong>toda a visão de 2026</strong> estiver no ClickUp — caso contrário, gestores teriam que olhar dois lugares.</p>
+<p>Hoje o controle de alocação de horas do Grupo SAL vive em <strong><code>00_GRUPO-SAL_CONSOLIDADO_ALOCACAO_2026</code></strong> (Google Sheets), alimentado por 4 planilhas-fonte por unidade de negócio (Branding / Comunicação / Conteúdo / CSC). O webapp Alocações já está pronto e escreve em ClickUp (<code>LISTA_REGISTRO_ALOCACAO</code> em BACK_OFFICE &gt; [ALOCAÇÕES]), mas só será adotado se <strong>toda a visão de 2026</strong> estiver no ClickUp — caso contrário, gestores teriam que olhar dois lugares.</p>
 
 <p><strong>Objetivos:</strong></p>
 <ol>
@@ -227,16 +246,16 @@
 <li><strong>Por quê:</strong> o controle de alocação agora é no app, pra dar visibilidade direta dos gestores aos dados sem depender de planilha consolidada.</li>
 <li><strong>O que muda:</strong></li>
 <li><strong>Gestores</strong> (já existentes na planilha): aba <strong>Planejamento</strong> do app → na <strong>segunda-feira</strong> lançam previsão de horas das suas equipes para a semana.</li>
-<li><strong>Colaboradores</strong>: aba <strong>Timesheet</strong> → na <strong>sexta-feira</strong> confirmam horas realizadas (ou ajustam se variou da previsão).</li>
+<li><strong>Colaboradores</strong>: aba <strong>Alocações</strong> → na <strong>sexta-feira</strong> confirmam horas realizadas (ou ajustam se variou da previsão).</li>
 <li><strong>A partir de quando:</strong> semana de corte (ex: 18/05).</li>
-<li><strong>Onde acessar:</strong> <code>https://gruposal.github.io/timesheet</code>.</li>
+<li><strong>Onde acessar:</strong> <code>https://gruposal.github.io/alocações</code>.</li>
 <li><strong>Como configurar:</strong> colar token ClickUp pessoal nas Configurações (⚙) do app — link para tutorial curto.</li>
 </ol>
 
 <h3>B.3 — Material de apoio (criar antes do anúncio)</h3>
 
 <ul>
-<li><strong>GIF/vídeo curto (~2 min)</strong> mostrando: login (config do token) → aba Planejamento (gestor lançando) → aba Timesheet (colaborador confirmando).</li>
+<li><strong>GIF/vídeo curto (~2 min)</strong> mostrando: login (config do token) → aba Planejamento (gestor lançando) → aba Alocações (colaborador confirmando).</li>
 <li><strong>Página de FAQ no Notion / Google Doc:</strong></li>
 <li>"Como gero meu token ClickUp"</li>
 <li>"Esqueci de lançar a semana passada — o que fazer?"</li>

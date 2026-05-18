@@ -1,16 +1,16 @@
 {
-  "name": "timesheet",
+  "name": "sal-alocacoes",
   "private": true,
   "version": "0.0.0",
-  "description": "Timesheet – Horas Semanais (React + Vite). Exportação para Excel e persistência opcional via Supabase.",
+  "description": "SAL-Alocações – Horas Semanais por colaborador e projeto (React + Vite), integrado ao ClickUp.",
   "type": "module",
-  "homepage": "https://gruposal.github.io/timesheet",
+  "homepage": "",
   "keywords": [
-    "timesheet",
+    "alocacoes",
+    "horas",
     "react",
     "vite",
-    "excel",
-    "supabase"
+    "clickup"
   ],
   "scripts": {
     "dev": "vite",

@@ -45,7 +45,7 @@ style: |
 
 <!-- _class: cover -->
 
-# Timesheet + ClickUp v2
+# Alocações + ClickUp v2
 
 Modelo simplificado — horas semanais sem controle por dia
 
@@ -74,7 +74,7 @@ Análise · Jornada de uso · Plano técnico
 ┌──────────────────────┐             ┌────────────────────────────────┐
 │                      │             │           CLICKUP               │
 │   WEBAPP             │   API v2    │                                 │
-│   (React + Vite)     │◀──────────▶│  📋 Timesheet Entries           │
+│   (React + Vite)     │◀──────────▶│  📋 Alocações Entries           │
 │                      │   fetch()   │  👤 People                     │
 │   UI simplificada    │             │  📁 Projects                   │
 │   Lógica preservada  │             │  🏢 Business Units              │
@@ -89,7 +89,7 @@ Análise · Jornada de uso · Plano técnico
 
 ## Novo modelo de dados
 
-Cada linha do timesheet:
+Cada linha do alocações:
 
 ```js
 {
@@ -111,7 +111,7 @@ Cada linha do timesheet:
 
 ## Como fica no ClickUp
 
-Cada linha do timesheet vira uma task:
+Cada linha do alocações vira uma task:
 
 ```
 📌 2026-W05 | Alice Silva | Branding / Google Brand Film
@@ -131,7 +131,7 @@ O gestor vê as horas totais por projeto/semana diretamente no ClickUp.
 
 ## Custom fields — de 13 para 8
 
-**List `Timesheet Entries`:**
+**List `Alocações Entries`:**
 
 | Campo | Tipo ClickUp | Observação |
 |---|---|---|
@@ -270,12 +270,12 @@ src/lib/clickup/
 **3 arquivos modificados** (v1 tinha 2):
 
 ```
-src/TimesheetApp.jsx  → 6 funções Supabase → 6 chamadas ClickUp
+src/AlocaçõesApp.jsx  → 6 funções Supabase → 6 chamadas ClickUp
                       → UI de entrada: grade → lista com campo "hours"
 src/Directory.jsx     → 4 funções Supabase → 4 chamadas ClickUp
 ```
 
-> `TimesheetApp.jsx` requer um pouco mais de trabalho na v2 — a UI de entrada muda, não só a camada de dados.
+> `AlocaçõesApp.jsx` requer um pouco mais de trabalho na v2 — a UI de entrada muda, não só a camada de dados.
 
 ---
 
@@ -347,7 +347,7 @@ Campos a criar no ClickUp com esses nomes exatos:
 
 ```bash
 VITE_CLICKUP_TOKEN=pk_...           # Token pessoal da conta ClickUp
-VITE_CLICKUP_LIST_ENTRIES=...       # ID da List "Timesheet Entries"
+VITE_CLICKUP_LIST_ENTRIES=...       # ID da List "Alocações Entries"
 VITE_CLICKUP_LIST_PEOPLE=...        # ID da List "People"
 VITE_CLICKUP_LIST_PROJECTS=...      # ID da List "Projects"
 VITE_CLICKUP_LIST_BUS=...           # ID da List "Business Units"
@@ -361,9 +361,9 @@ Continua 5 variáveis — igual à v1.
 
 **O que criar manualmente (~10 min — menos que a v1):**
 
-1. Um **Space** ou **Folder** dedicado (ex: _"Timesheet"_)
-2. 4 **Lists:** `Timesheet Entries`, `People`, `Projects`, `Business Units`
-3. Na list `Timesheet Entries`, 8 campos com os **nomes exatos:**
+1. Um **Space** ou **Folder** dedicado (ex: _"Alocações"_)
+2. 4 **Lists:** `Alocações Entries`, `People`, `Projects`, `Business Units`
+3. Na list `Alocações Entries`, 8 campos com os **nomes exatos:**
 
 | Campos texto | Campos número |
 |---|---|
@@ -382,12 +382,12 @@ Continua 5 variáveis — igual à v1.
 | **3. `fields.js`** | auto-descoberta de 8 field IDs | Igual |
 | **4. `entries.js`** | operações de leitura/escrita | Mais simples (sem dias) |
 | **5. `lists.js`** | CRUD de people/projects/BUs | Igual |
-| **6. `TimesheetApp.jsx`** | trocar Supabase + refazer UI de entrada | **Mais trabalho** |
+| **6. `AlocaçõesApp.jsx`** | trocar Supabase + refazer UI de entrada | **Mais trabalho** |
 | **7. `Dashboard.jsx`** | `row.Total` → `row.Hours` | Novo (não havia na v1) |
 | **8. `Directory.jsx`** | trocar 4 chamadas Supabase | Igual |
 | **9. Testes** | fluxo completo colaborador e gestor | — |
 
-A fase crítica continua sendo **`entries.js`** + **`TimesheetApp.jsx`** (UI de entrada).
+A fase crítica continua sendo **`entries.js`** + **`AlocaçõesApp.jsx`** (UI de entrada).
 
 ---
 
@@ -413,7 +413,7 @@ A fase crítica continua sendo **`entries.js`** + **`TimesheetApp.jsx`** (UI de 
 
 **Para o gestor:** ClickUp mais legível — campo `hours` direto, sem somar dias
 
-**Custo da simplificação:** UI de entrada precisa ser refeita em `TimesheetApp.jsx`
+**Custo da simplificação:** UI de entrada precisa ser refeita em `AlocaçõesApp.jsx`
 
 ---
 
