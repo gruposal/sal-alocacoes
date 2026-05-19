@@ -124,16 +124,25 @@ export async function loadForWeek(year, isoWeek) {
   return (data.tasks || []).map(fromTask);
 }
 
-export async function loadLastYear(year) {
+export async function loadLastYear(year, { onProgress } = {}) {
   const filters = [
     { field_id: FIELDS.ano, operator: '=', value: year },
   ];
   const rows = [];
   let page = 0;
-  while (true) {
-    const data = await fetchPage(filters, page);
+  const MAX_PAGES = 30;
+  while (page < MAX_PAGES) {
+    let data;
+    try {
+      data = await fetchPage(filters, page);
+    } catch (e) {
+      // Página falhou (timeout ou erro de rede) — retorna o que temos até agora
+      console.warn(`loadLastYear: página ${page} falhou, retornando ${rows.length} registros parciais.`, e);
+      break;
+    }
     const batch = (data.tasks || []).map(fromTask);
     rows.push(...batch);
+    if (onProgress) onProgress(rows.length);
     if (data.last_page || batch.length === 0) break;
     page++;
   }

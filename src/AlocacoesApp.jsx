@@ -1022,12 +1022,15 @@ export default function AlocacoesApp() {
   async function loadYear() {
     try {
       setLoadingWeek(true);
-      const r = await loadLastYear(selectedYear);
-      setDb(r); setPreviewPage(1); setDbOpen(true);
+      const r = await loadLastYear(selectedYear, {
+        onProgress: n => showToast(`Carregando… ${n} registros`),
+      });
+      if (!r.length) { showToast("Nenhum dado encontrado."); return; }
+      setDb(r); setDbOpen(true);
       setDbScope(`year-${selectedYear}`);
       mergeRowsIntoCcMap(r);
-      showToast(`${r.length} registros.`);
-    } catch { showToast("Erro ao carregar ano."); }
+      showToast(`${r.length} registros carregados.`);
+    } catch { showToast("Erro ao carregar ano. Tente novamente."); }
     finally { setLoadingWeek(false); }
   }
 

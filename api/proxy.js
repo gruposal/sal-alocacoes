@@ -1,7 +1,8 @@
 // Vercel Serverless Function — proxy ClickUp.
 // Browser chama /api/clickup/<path>?<query> → encaminha para
 // https://api.clickup.com/api/v2/<path>?<query> com Authorization injetada server-side.
-// Cache é gerenciado pelo browser via localStorage (ts:cache:*) no app React.
+
+export const maxDuration = 60; // Vercel Pro/Hobby: até 60s por função
 
 export default async function handler(req, res) {
   const token = process.env.CLICKUP_TOKEN;
@@ -19,15 +20,28 @@ export default async function handler(req, res) {
     ? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
     : undefined;
 
-  const upstream = await fetch(url, {
-    method: req.method,
-    headers: { Authorization: token, 'Content-Type': 'application/json' },
-    body,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000); // 55s — deixa margem pro Vercel responder
 
-  const text = await upstream.text();
-  const ct = upstream.headers.get('content-type');
-  if (ct) res.setHeader('content-type', ct);
-  res.setHeader('cache-control', 'no-store');
-  res.status(upstream.status).send(text);
+  try {
+    const upstream = await fetch(url, {
+      method: req.method,
+      headers: { Authorization: token, 'Content-Type': 'application/json' },
+      body,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const text = await upstream.text();
+    const ct = upstream.headers.get('content-type');
+    if (ct) res.setHeader('content-type', ct);
+    res.setHeader('cache-control', 'no-store');
+    res.status(upstream.status).send(text);
+  } catch (e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') {
+      res.status(504).json({ error: 'Timeout ao chamar ClickUp API.' });
+    } else {
+      res.status(502).json({ error: 'Erro ao chamar ClickUp API.', detail: e.message });
+    }
+  }
 }
