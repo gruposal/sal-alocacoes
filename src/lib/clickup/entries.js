@@ -208,12 +208,26 @@ export async function upsertForecast(rows) {
   }
 }
 
+async function resolveTaskId(name) {
+  // Tenta cache primeiro; se não tiver, busca no ClickUp pelo nome exato
+  const cached = taskIdCache.get(name);
+  if (cached) return cached;
+  const data = await cuFetch(`/list/${LIST_ENTRIES}/task?name=${encodeURIComponent(name)}&include_closed=true`);
+  const task = (data.tasks || []).find(t => t.name === name);
+  if (!task) return null;
+  taskIdCache.set(name, task.id);
+  return task.id;
+}
+
 export async function upsertConsolidated(rows) {
   for (const row of rows) {
     const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
-    const cachedId = taskIdCache.get(name);
-    if (!cachedId) throw new Error(`Task não encontrada: ${name}. Salve a previsão antes de consolidar.`);
-    await setField(cachedId, FIELDS.horas_realizadas, row.Hours_Consolidated);
+    let taskId = await resolveTaskId(name);
+    if (!taskId) {
+      // Task não existe ainda — cria com forecast null e consolidated preenchido
+      taskId = await createEntry({ ...row, Hours_Forecast: row.Hours_Forecast ?? null });
+    }
+    await setField(taskId, FIELDS.horas_realizadas, row.Hours_Consolidated);
   }
 }
 

@@ -966,9 +966,11 @@ export default function AlocacoesApp() {
       if (forecastRows.length)     await upsertForecast(forecastRows);
       if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
       showToast(`Salvo (${rows.length} linha${rows.length > 1 ? "s" : ""}).`);
-      // Re-busca apenas a semana salva e merge no cache anual — não invalida o ano inteiro.
       loadFromClickUp({ silent: true, force: true });
-    } catch (e) { console.warn(e); showToast("Erro ao salvar."); }
+    } catch (e) {
+      console.error("save error:", e);
+      showToast(`Erro ao salvar: ${e?.message || 'verifique o console.'}`);
+    }
     finally { setSaving(false); }
   }
 
