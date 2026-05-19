@@ -652,6 +652,26 @@ export default function AlocacoesApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-carrega a semana corrente ao abrir sem cache — garante que o Painel
+  // (Semana / Ocupação) já tem dados sem o usuário precisar fazer nada.
+  useEffect(() => {
+    if (dbScope !== 'empty') return; // já tem dados
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingWeek(true);
+        const rows = await loadForWeek(selectedYear, selectedWeek);
+        if (cancelled) return;
+        mergeWeekIntoDb(selectedYear, selectedWeek, rows);
+        mergeRowsIntoCcMap(rows);
+        setDbScope(`week-${selectedYear}-${selectedWeek}`);
+      } catch (e) { console.warn('auto-load semana:', e); }
+      finally { if (!cancelled) setLoadingWeek(false); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Constrói/atualiza o mapa project → CC a partir das entries carregadas.
   // Para cada projeto, escolhe o CC mais frequente no histórico (vota por contagem).
   function mergeRowsIntoCcMap(rows) {
