@@ -1017,7 +1017,10 @@ export default function AlocacoesApp() {
         setEntries([blankEntry()]);
       }
       if (!silent) showToast(`${rows.length} registro${rows.length !== 1 ? "s" : ""} carregado${rows.length !== 1 ? "s" : ""}.`);
-    } catch (e) { console.warn(e); if (!silent) showToast("Erro ao carregar."); }
+    } catch (e) {
+      console.error("loadFromClickUp error:", e);
+      if (!silent) showToast(`Erro ao carregar: ${e?.message || String(e)}`);
+    }
     finally { setLoadingWeek(false); }
   }
 
