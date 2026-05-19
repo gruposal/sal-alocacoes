@@ -353,6 +353,17 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
     return { totalF, totalC, projetos, media };
   }, [visaoRows]);
 
+  const visaoPorProjeto = useMemo(() => {
+    const map = new Map();
+    for (const r of visaoRows) {
+      const p = r.Project;
+      const f = Number(r.Hours_Forecast) || 0;
+      if (!p || f <= 0) continue;
+      map.set(p, (map.get(p) || 0) + f);
+    }
+    return [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [visaoRows]);
+
   const [visaoGroup, setVisaoGroup] = useState(false);
   const visaoProjetos = useMemo(() => {
     if (!visaoGroup) return null;
@@ -596,6 +607,15 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                 <KpiCard label="Projetos"         value={visaoKpis.projetos.toString()} color="text-[var(--warning)]" accent="var(--warning)" />
                 <KpiCard label="Média/semana"     value={visaoKpis.media + 'h'} color="text-[var(--text-1)]" accent="var(--border-strong)" />
               </div>
+
+              {/* Gráfico por projeto */}
+              {visaoPorProjeto.length > 0 && (
+                <VerticalBars
+                  title="Horas Previstas por Projeto"
+                  badge="período"
+                  data={visaoPorProjeto}
+                />
+              )}
 
               {/* Toggle agrupamento */}
               <div className="flex justify-end">
