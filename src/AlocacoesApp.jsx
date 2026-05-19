@@ -510,8 +510,7 @@ export default function AlocacoesApp() {
   // Permite saber se o Dashboard precisa recarregar ou pode reusar.
   const [dbScope, setDbScope] = useState(() => _dbRows?.length ? `year-${_yrInit}` : 'empty');
   const [previewSort, setPreviewSort]       = useState({ field: "ISO_Week", dir: "desc" });
-  const [previewPage, setPreviewPage]       = useState(1);
-  const [previewPageSize]                   = useState(15);
+  const [previewWeek, setPreviewWeek]       = useState(null); // null = semana mais recente
   const [editingId, setEditingId]           = useState(null);
   const [editingValues, setEditingValues]   = useState(null);
   const [view, setView]                     = useState(() => {
@@ -1077,9 +1076,10 @@ export default function AlocacoesApp() {
     return arr;
   }, [filteredDb, previewSort]);
 
-  const totalPages  = Math.max(1, Math.ceil(sortedDb.length / previewPageSize));
-  const currentPage = Math.min(previewPage, totalPages);
-  const pagedDb     = useMemo(() => sortedDb.slice((currentPage - 1) * previewPageSize, currentPage * previewPageSize), [sortedDb, currentPage, previewPageSize]);
+  const previewWeeks = useMemo(() => [...new Set(filteredDb.map(r => r.ISO_Week).filter(Boolean))].sort((a, b) => b - a), [filteredDb]);
+  const activeWeek   = previewWeek ?? previewWeeks[0] ?? null;
+  const weekIdx      = previewWeeks.indexOf(activeWeek);
+  const pagedDb      = useMemo(() => sortedDb.filter(r => r.ISO_Week === activeWeek), [sortedDb, activeWeek]);
 
   function toggleSort(f) {
     setPreviewSort(p => p.field === f ? { field: f, dir: p.dir === "asc" ? "desc" : "asc" } : { field: f, dir: "asc" });
@@ -1803,7 +1803,7 @@ export default function AlocacoesApp() {
                   <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--border-subtle)]">
                     <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
                       placeholder="Filtrar por pessoa, projeto ou CC…" className={`${inputCls} max-w-xs`} />
-                    {dbFilter && <button onClick={() => setDbFilter("")} className="text-[13px] text-[var(--text-3)] hover:text-black dark:hover:text-white">Limpar</button>}
+                    {dbFilter && <button onClick={() => { setDbFilter(""); setPreviewWeek(null); }} className="text-[13px] text-[var(--text-3)] hover:text-black dark:hover:text-white">Limpar</button>}
                     <span className="ml-auto text-[13px] text-[var(--text-3)]">{filteredDb.length} de {db.length} registros</span>
                   </div>
                   <div className="overflow-x-auto">
@@ -1855,12 +1855,18 @@ export default function AlocacoesApp() {
                       </tbody>
                     </table>
                   </div>
-                  {totalPages > 1 && (
+                  {previewWeeks.length > 0 && (
                     <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                      <span className="text-[13px] text-[var(--text-3)]">Página {currentPage} de {totalPages}</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => setPreviewPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} className={`${btnGhost} py-1.5 px-3`}>←</button>
-                        <button onClick={() => setPreviewPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className={`${btnGhost} py-1.5 px-3`}>→</button>
+                      <span className="text-[13px] text-[var(--text-3)]">
+                        W{String(activeWeek).padStart(2,'0')} · {pagedDb.length} registro{pagedDb.length !== 1 ? 's' : ''}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setPreviewWeek(previewWeeks[weekIdx + 1])} disabled={weekIdx >= previewWeeks.length - 1} className={`${btnGhost} py-1.5 px-3`}>←</button>
+                        <select value={activeWeek ?? ''} onChange={e => setPreviewWeek(Number(e.target.value))}
+                          className="text-[13px] rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1 focus:outline-none">
+                          {previewWeeks.map(w => <option key={w} value={w}>W{String(w).padStart(2,'0')}</option>)}
+                        </select>
+                        <button onClick={() => setPreviewWeek(previewWeeks[weekIdx - 1])} disabled={weekIdx <= 0} className={`${btnGhost} py-1.5 px-3`}>→</button>
                       </div>
                     </div>
                   )}
