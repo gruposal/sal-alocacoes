@@ -1646,8 +1646,15 @@ export default function AlocacoesApp() {
                       </div>
                       <div className="flex-1">
                         <label className="text-[11px] text-[var(--text-3)] uppercase tracking-wider">Realizadas</label>
-                        <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
-                          placeholder="0" className={`${inputCls} text-right tabular-nums mt-1`} />
+                        <div className="flex items-center gap-1 mt-1">
+                          <DesvioCell
+                            forecast={r.hours_forecast}
+                            consolidated={r.hours_consolidated}
+                            onReplicate={() => updateProjetoRow(r.id, "hours_consolidated", String(Number(r.hours_forecast) || 0))}
+                          />
+                          <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
+                            placeholder="0" className={`${inputCls} text-right tabular-nums flex-1`} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1693,8 +1700,15 @@ export default function AlocacoesApp() {
                             placeholder="0" className={`${inputCls} text-right tabular-nums`} />
                         </td>
                         <td className={`${td} text-right`}>
-                          <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
-                            placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                          <div className="flex items-center justify-end gap-2">
+                            <DesvioCell
+                              forecast={r.hours_forecast}
+                              consolidated={r.hours_consolidated}
+                              onReplicate={() => updateProjetoRow(r.id, "hours_consolidated", String(Number(r.hours_forecast) || 0))}
+                            />
+                            <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
+                              placeholder="0" className={`${inputCls} text-right tabular-nums w-20`} />
+                          </div>
                         </td>
                         <td className="pr-3 text-right">
                           <button onClick={() => setProjetoRows(p => p.filter(x => x.id !== r.id))}
