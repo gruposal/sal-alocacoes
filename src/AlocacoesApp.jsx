@@ -539,6 +539,11 @@ export default function AlocacoesApp() {
     return Array.isArray(saved) && saved.length ? saved : [blankPlanGroup()];
   });
 
+  // ── Aba Projeto ────────────────────────────────────────────────────────────
+  const blankProjetoRow = () => ({ id: uid(), person: "", businessUnit: bus[0] || "", hours_forecast: "", hours_consolidated: "" });
+  const [projetoProject, setProjetoProject] = useState("");
+  const [projetoRows, setProjetoRows]       = useState([blankProjetoRow()]);
+
   function showToast(msg) {
     if (!toastRef.current) toastRef.current = {};
     setToast(msg);
@@ -568,13 +573,19 @@ export default function AlocacoesApp() {
   }, [selectedYear, selectedWeek]);
 
   useEffect(() => {
+    if (projetoProject) loadProjetoRows(projetoProject, selectedYear, selectedWeek);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear, selectedWeek]);
+
+  useEffect(() => {
     function onKey(e) {
       if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); setHelpOpen(v => !v); }
       if (e.key === "?" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setHelpOpen(v => !v); }
       if (e.shiftKey) {
         if (e.key === "1") { e.preventDefault(); setView("lancar"); }
         if (e.key === "2") { e.preventDefault(); setView("planning"); }
-        if (e.key === "3") { e.preventDefault(); setView("dashboard"); }
+        if (e.key === "3") { e.preventDefault(); setView("projeto"); }
+        if (e.key === "4") { e.preventDefault(); setView("dashboard"); }
       }
     }
     window.addEventListener("keydown", onKey);
@@ -840,6 +851,81 @@ export default function AlocacoesApp() {
     }));
   }
 
+  async function loadProjetoRows(project, year, week) {
+    try {
+      const yearReady = dbScope === `year-${year}`;
+      let rows;
+      if (yearReady) {
+        rows = db.filter(r => r.Year === year && r.ISO_Week === week);
+      } else {
+        setLoadingWeek(true);
+        rows = await loadForWeek(year, week);
+        mergeWeekIntoDb(year, week, rows);
+        mergeRowsIntoCcMap(rows);
+      }
+      const forProject = rows.filter(r => r.Project === project);
+      setProjetoRows(forProject.length
+        ? forProject.map(r => ({
+            id: uid(),
+            person: r.Person,
+            businessUnit: r.Business_Unit || (bus[0] || ""),
+            hours_forecast:     r.Hours_Forecast     ?? "",
+            hours_consolidated: r.Hours_Consolidated ?? "",
+          }))
+        : [blankProjetoRow()]
+      );
+    } catch (e) {
+      console.warn(e);
+      showToast("Erro ao carregar alocações do projeto.");
+    } finally {
+      setLoadingWeek(false);
+    }
+  }
+
+  async function selectProjetoProject(project) {
+    setProjetoProject(project);
+    setProjetoRows([blankProjetoRow()]);
+    if (project) await loadProjetoRows(project, selectedYear, selectedWeek);
+  }
+
+  function updateProjetoRow(id, field, value) {
+    setProjetoRows(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      if (field === "hours_forecast" || field === "hours_consolidated") {
+        if (value === "") return { ...r, [field]: "" };
+        let n = parseInt(value, 10);
+        if (isNaN(n)) n = 0;
+        return { ...r, [field]: Math.max(0, Math.min(40, n)) };
+      }
+      const next = { ...r, [field]: value };
+      if (field === "person" && value && projectToCc[projetoProject]) {
+        next.businessUnit = projectToCc[projetoProject];
+      }
+      return next;
+    }));
+  }
+
+  async function saveProjetoRows() {
+    if (!projetoProject) { showToast("Selecione um projeto."); return; }
+    const valid = projetoRows.filter(r => r.person && (Number(r.hours_forecast) > 0 || Number(r.hours_consolidated) > 0));
+    if (!valid.length) { showToast("Preencha pelo menos uma pessoa com horas."); return; }
+    const mkRow = r => ({
+      Year: selectedYear, ISO_Week: selectedWeek,
+      Person: r.person, Project: projetoProject, Business_Unit: r.businessUnit,
+      Hours_Forecast:     Number(r.hours_forecast)     || null,
+      Hours_Consolidated: Number(r.hours_consolidated) || null,
+    });
+    try {
+      setSaving(true);
+      const forecastRows     = valid.filter(r => Number(r.hours_forecast) > 0).map(mkRow);
+      const consolidatedRows = valid.filter(r => Number(r.hours_consolidated) > 0).map(mkRow);
+      if (forecastRows.length)     await upsertForecast(forecastRows);
+      if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
+      showToast(`Salvo — ${valid.length} pessoa${valid.length > 1 ? "s" : ""}.`);
+    } catch (e) { console.warn(e); showToast("Erro ao salvar."); }
+    finally { setSaving(false); }
+  }
+
   async function savePlan() {
     const rows = planGroups.flatMap(g =>
       g.rows
@@ -1021,6 +1107,7 @@ export default function AlocacoesApp() {
   const TABS = [
     { k: "lancar",    label: "Individual", icon: "⏱" },
     { k: "planning",  label: "Equipe",     icon: "📅" },
+    { k: "projeto",   label: "Projeto",    icon: "🗂" },
     { k: "dashboard", label: "Painel",     icon: "📊" },
   ];
 
@@ -1494,6 +1581,147 @@ export default function AlocacoesApp() {
               </button>
               <button onClick={savePlan} disabled={saving} className={btnBlue}>
                 {saving ? "Salvando…" : "→ Salvar planejamento"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ══════════════════════════════════════════
+            PROJETO  (alocação por projeto)
+        ══════════════════════════════════════════ */}
+        {view === "projeto" && (
+          <>
+            <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
+              <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+                Projeto
+              </h1>
+              <WeekNav
+                year={selectedYear} week={selectedWeek} start={start} end={end}
+                onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
+              />
+            </header>
+
+            <div className={card}>
+              {/* Seletor de projeto */}
+              <div className="px-4 py-3 border-b border-[var(--border-subtle)]">
+                <Combobox
+                  value={projetoProject}
+                  onChange={selectProjetoProject}
+                  options={projects}
+                  placeholder={projects.length === 0 ? "Carregando…" : "Selecionar projeto…"}
+                  className={`${inputCls} font-semibold text-[15px] max-w-md`}
+                />
+              </div>
+
+              {/* MOBILE: cards */}
+              <div className="sm:hidden p-3 space-y-2">
+                {projetoRows.map(r => (
+                  <div key={r.id} className="rounded-lg border border-[var(--border-subtle)] p-2.5 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <Combobox
+                          value={r.person}
+                          onChange={v => updateProjetoRow(r.id, "person", v)}
+                          options={people}
+                          placeholder="Pessoa…"
+                          className={`${inputCls} font-medium`}
+                        />
+                      </div>
+                      <button onClick={() => setProjetoRows(p => p.filter(x => x.id !== r.id))}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[16px] leading-none shrink-0">
+                        ×
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select value={r.businessUnit} onChange={e => updateProjetoRow(r.id, "businessUnit", e.target.value)}
+                        className="flex-1 bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1">
+                        {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[11px] text-[var(--text-3)] uppercase tracking-wider">Previstas</label>
+                        <HoursInput value={r.hours_forecast} onChange={v => updateProjetoRow(r.id, "hours_forecast", v)}
+                          placeholder="0" className={`${inputCls} text-right tabular-nums mt-1`} />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[11px] text-[var(--text-3)] uppercase tracking-wider">Realizadas</label>
+                        <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
+                          placeholder="0" className={`${inputCls} text-right tabular-nums mt-1`} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button onClick={() => setProjetoRows(p => [...p, blankProjetoRow()])}
+                  className="w-full py-2 rounded-lg border border-dashed border-[var(--border-strong)] text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+                  + Adicionar pessoa
+                </button>
+              </div>
+
+              {/* DESKTOP: tabela */}
+              <div className="hidden sm:block">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[var(--border-subtle)]">
+                      <th className={th} style={{ minWidth: 180 }}>Pessoa</th>
+                      <th className={th}>Centro de Custo</th>
+                      <th className={`${th} text-right`} style={{ width: 110 }}>Previstas</th>
+                      <th className={`${th} text-right`} style={{ width: 110 }}>Realizadas</th>
+                      <th style={{ width: 36 }} />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-subtle)]">
+                    {projetoRows.map(r => (
+                      <tr key={r.id} className="group hover:bg-[var(--surface-alt)]/60 transition-colors">
+                        <td className={td}>
+                          <Combobox
+                            value={r.person}
+                            onChange={v => updateProjetoRow(r.id, "person", v)}
+                            options={people}
+                            placeholder="Pessoa…"
+                            className={`${inputCls} font-medium`}
+                          />
+                        </td>
+                        <td className={td}>
+                          <select value={r.businessUnit} onChange={e => updateProjetoRow(r.id, "businessUnit", e.target.value)}
+                            className="bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1 px-1 rounded hover:bg-[var(--surface-alt)]">
+                            {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                          </select>
+                        </td>
+                        <td className={`${td} text-right`}>
+                          <HoursInput value={r.hours_forecast} onChange={v => updateProjetoRow(r.id, "hours_forecast", v)}
+                            placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                        </td>
+                        <td className={`${td} text-right`}>
+                          <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
+                            placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                        </td>
+                        <td className="pr-3 text-right">
+                          <button onClick={() => setProjetoRows(p => p.filter(x => x.id !== r.id))}
+                            className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] opacity-0 group-hover:opacity-100 hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-all text-[16px] leading-none">
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-[var(--border-subtle)]">
+                      <td colSpan={5} className="p-0">
+                        <button onClick={() => setProjetoRows(p => [...p, blankProjetoRow()])}
+                          className="w-full px-4 py-2.5 text-left text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+                          + Adicionar pessoa
+                        </button>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button onClick={saveProjetoRows} disabled={saving || !projetoProject} className={btnBlue}>
+                {saving ? "Salvando…" : "→ Salvar projeto"}
               </button>
             </div>
           </>
