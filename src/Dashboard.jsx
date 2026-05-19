@@ -59,6 +59,11 @@ const PALETTE = [
 function VerticalBars({ title, badge, data, formatValue = v => v.toLocaleString('pt-BR') + 'h', maxItems = 20 }) {
   const shown = data.slice(0, maxItems);
   const max = useMemo(() => Math.max(1, ...shown.map(d => Math.abs(d.value))), [shown]);
+  const [tooltip, setTooltip] = useState(null); // { name, value, x, y }
+
+  // Label adaptativa: mais curta quanto mais barras
+  const labelLen = shown.length <= 8 ? 20 : shown.length <= 14 ? 14 : 10;
+
   return (
     <div className={card}>
       <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-2">
@@ -71,19 +76,44 @@ function VerticalBars({ title, badge, data, formatValue = v => v.toLocaleString(
       {!shown.length ? (
         <div className="px-5 py-10 text-[15px] text-[var(--text-3)] text-center">Sem dados.</div>
       ) : (
-        <div className="px-5 pt-5 pb-3 overflow-x-auto">
-          <div className="flex items-end gap-3 min-h-[280px] pb-20" style={{ minWidth: Math.max(shown.length * 64, 400) }}>
+        <div className="px-5 pt-5 pb-3 overflow-x-auto relative" onMouseLeave={() => setTooltip(null)}>
+          {/* Tooltip flutuante */}
+          {tooltip && (
+            <div className="pointer-events-none fixed z-50 px-3 py-2 rounded-lg shadow-lg border border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-1)] text-[13px] max-w-[220px]"
+              style={{ left: tooltip.x, top: tooltip.y, transform: 'translate(-50%, -110%)' }}>
+              <div className="font-semibold leading-snug mb-0.5">{tooltip.name}</div>
+              <div className="tabular-nums text-[var(--accent)] font-bold text-[15px]">{formatValue(tooltip.value)}</div>
+            </div>
+          )}
+          <div className="flex items-end gap-3 min-h-[240px] pb-16" style={{ minWidth: Math.max(shown.length * 60, 360) }}>
             {shown.map((d, i) => {
-              const h = Math.max(3, Math.round((Math.abs(d.value) / max) * 240));
+              const h = Math.max(4, Math.round((Math.abs(d.value) / max) * 200));
               const color = d.color || PALETTE[i % PALETTE.length];
+              const isActive = tooltip?.name === d.name;
+              const label = d.name.length > labelLen ? d.name.slice(0, labelLen - 1) + '…' : d.name;
               return (
-                <div key={d.name} className="flex flex-col items-center flex-1 min-w-[42px] relative">
-                  <span className="text-[11px] tabular-nums text-[var(--text-3)] mb-1.5">{formatValue(d.value)}</span>
-                  <div className="w-full rounded-t-[6px] transition-opacity hover:opacity-80"
-                    style={{ height: h, backgroundColor: color }} title={`${d.name}: ${formatValue(d.value)}`} />
-                  <div className="absolute top-full mt-2 left-1/2 origin-top-left -translate-x-1/2 -rotate-[35deg]">
-                    <span className="text-[11px] text-[var(--text-2)] whitespace-nowrap block" title={d.name}>
-                      {d.name.length > 28 ? d.name.slice(0, 27) + '…' : d.name}
+                <div key={d.name} className="flex flex-col items-center flex-1 min-w-[44px] relative group cursor-default"
+                  onMouseEnter={e => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setTooltip({ name: d.name, value: d.value, x: rect.left + rect.width / 2, y: rect.top });
+                  }}>
+                  {/* Valor acima da barra */}
+                  <span className={`text-[11px] tabular-nums mb-1 transition-colors ${isActive ? 'text-[var(--text-1)] font-semibold' : 'text-[var(--text-3)]'}`}>
+                    {formatValue(d.value)}
+                  </span>
+                  {/* Barra */}
+                  <div className="w-full rounded-t-[6px] transition-all duration-150"
+                    style={{
+                      height: h,
+                      backgroundColor: color,
+                      opacity: tooltip && !isActive ? 0.35 : 1,
+                      transform: isActive ? 'scaleX(1.06)' : 'scaleX(1)',
+                    }} />
+                  {/* Label abaixo */}
+                  <div className="w-full mt-2 flex justify-center">
+                    <span className={`text-[11px] whitespace-nowrap block transition-colors ${isActive ? 'text-[var(--text-1)] font-semibold' : 'text-[var(--text-3)]'}`}
+                      title={d.name}>
+                      {label}
                     </span>
                   </div>
                 </div>
@@ -98,6 +128,8 @@ function VerticalBars({ title, badge, data, formatValue = v => v.toLocaleString(
 
 // ─── Weekly Bars (realizadas por semana) ──────────────────────────────────────
 function WeeklyBarsConsolidated({ rows }) {
+  const [hoveredWeek, setHoveredWeek] = useState(null);
+  const [tooltip, setTooltip] = useState(null);
   const { weeks, max } = useMemo(() => {
     const byWeek = new Map();
     for (const r of rows || []) {
@@ -116,15 +148,29 @@ function WeeklyBarsConsolidated({ rows }) {
         <h3 className="font-semibold text-[15px]">Evolução Semanal</h3>
         <span className="text-[11px] text-[var(--text-3)] uppercase tracking-wider">realizadas</span>
       </div>
-      <div className="px-5 pt-4 pb-3 overflow-x-auto">
+      <div className="px-5 pt-4 pb-3 overflow-x-auto relative" onMouseLeave={() => { setHoveredWeek(null); setTooltip(null); }}>
+        {tooltip && (
+          <div className="pointer-events-none fixed z-50 px-3 py-2 rounded-lg shadow-lg border border-[var(--border-subtle)] bg-[var(--surface)] text-[13px]"
+            style={{ left: tooltip.x, top: tooltip.y, transform: 'translate(-50%, -110%)' }}>
+            <div className="font-semibold text-[var(--text-1)]">W{String(tooltip.w).padStart(2,'0')}</div>
+            <div className="tabular-nums text-[var(--positive)] font-bold text-[15px]">{tooltip.v}h</div>
+          </div>
+        )}
         <div className="flex items-end gap-2 min-h-[120px]" style={{ minWidth: weeks.length * 36 }}>
           {weeks.map(({ w, v }) => {
             const h = Math.max(2, Math.round((v / max) * 110));
+            const isActive = hoveredWeek === w;
             return (
-              <div key={w} className="flex flex-col items-center gap-1.5 flex-1" title={`W${String(w).padStart(2,'0')}: ${v}h`}>
-                <span className="text-[11px] tabular-nums text-[var(--text-3)]">{v || ''}</span>
-                <div className="w-full rounded-t" style={{ height: h, backgroundColor: 'var(--positive)', opacity: 0.85 }} />
-                <span className="text-[11px] tabular-nums text-[var(--text-3)]">W{String(w).padStart(2,'0')}</span>
+              <div key={w} className="flex flex-col items-center gap-1.5 flex-1 cursor-default"
+                onMouseEnter={e => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setHoveredWeek(w);
+                  setTooltip({ w, v, x: rect.left + rect.width / 2, y: rect.top });
+                }}>
+                <span className={`text-[11px] tabular-nums transition-colors ${isActive ? 'text-[var(--text-1)] font-semibold' : 'text-[var(--text-3)]'}`}>{v || ''}</span>
+                <div className="w-full rounded-t transition-all duration-150"
+                  style={{ height: h, backgroundColor: 'var(--positive)', opacity: hoveredWeek && !isActive ? 0.3 : 0.85, transform: isActive ? 'scaleX(1.1)' : 'scaleX(1)' }} />
+                <span className={`text-[11px] tabular-nums transition-colors ${isActive ? 'text-[var(--text-1)] font-semibold' : 'text-[var(--text-3)]'}`}>W{String(w).padStart(2,'0')}</span>
               </div>
             );
           })}
