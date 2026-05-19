@@ -1659,6 +1659,20 @@ export default function AlocacoesApp() {
                     </div>
                   </div>
                 ))}
+                {(() => {
+                  const totalF = projetoRows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
+                  const totalC = projetoRows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
+                  if (!totalF && !totalC) return null;
+                  return (
+                    <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-[var(--surface-alt)] text-[13px] font-semibold tabular-nums">
+                      <span className="text-[var(--text-3)] uppercase tracking-wider text-[11px]">Total</span>
+                      <div className="flex gap-4">
+                        {totalF > 0 && <span className="text-[var(--text-1)]">Prev: {totalF}h</span>}
+                        {totalC > 0 && <span className="text-[var(--text-1)]">Real: {totalC}h</span>}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <button onClick={() => setProjetoRows(p => [...p, blankProjetoRow()])}
                   className="w-full py-2 rounded-lg border border-dashed border-[var(--border-strong)] text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
                   + Adicionar pessoa
@@ -1728,6 +1742,25 @@ export default function AlocacoesApp() {
                         </button>
                       </td>
                     </tr>
+                    {(() => {
+                      const totalF = projetoRows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
+                      const totalC = projetoRows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
+                      if (!totalF && !totalC) return null;
+                      return (
+                        <tr className="border-t-2 border-[var(--border-subtle)] bg-[var(--surface-alt)]/50">
+                          <td colSpan={2} className={`${td} text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]`}>
+                            Total
+                          </td>
+                          <td className={`${td} text-right tabular-nums font-semibold text-[var(--text-1)]`}>
+                            {totalF > 0 ? `${totalF}h` : "—"}
+                          </td>
+                          <td className={`${td} text-right tabular-nums font-semibold text-[var(--text-1)]`}>
+                            {totalC > 0 ? `${totalC}h` : "—"}
+                          </td>
+                          <td />
+                        </tr>
+                      );
+                    })()}
                   </tfoot>
                 </table>
               </div>
