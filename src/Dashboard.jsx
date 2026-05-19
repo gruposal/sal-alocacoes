@@ -268,6 +268,17 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
     });
   }, [weekRows, semCcFilter, semSort]);
 
+  const semPorProjeto = useMemo(() => {
+    const map = new Map();
+    for (const r of weekRows) {
+      const p = r.Project;
+      const f = Number(r.Hours_Forecast) || 0;
+      if (!p || f <= 0) continue;
+      map.set(p, (map.get(p) || 0) + f);
+    }
+    return [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [weekRows]);
+
   const alertSemAlocacao = useMemo(() => {
     const alocados = new Set(weekRows.filter(r => (Number(r.Hours_Forecast) || 0) > 0).map(r => r.Person));
     return people.filter(p => !alocados.has(p)).sort();
@@ -437,6 +448,15 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
               emptyMsg="Todas as realizadas da semana anterior foram preenchidas."
             />
           </div>
+
+          {/* Horas previstas por projeto */}
+          {semPorProjeto.length > 0 && (
+            <VerticalBars
+              title={`Horas Previstas por Projeto — W${String(selectedWeek).padStart(2,'0')}`}
+              badge="previsto"
+              data={semPorProjeto}
+            />
+          )}
 
           {/* Tabela de alocação da semana */}
           <div className={card}>
