@@ -1019,9 +1019,9 @@ export default function AlocacoesApp() {
   const sep       = "divide-y divide-[var(--border-subtle)]";
 
   const TABS = [
-    { k: "lancar",    label: "Lançar",        icon: "⏱" },
-    { k: "planning",  label: "Planejamento",  icon: "📅" },
-    { k: "dashboard", label: "Visão Geral",   icon: "📊" },
+    { k: "lancar",    label: "Individual", icon: "⏱" },
+    { k: "planning",  label: "Equipe",     icon: "📅" },
+    { k: "dashboard", label: "Painel",     icon: "📊" },
   ];
 
   const loadingLabel = saving ? 'Salvando…'
@@ -1061,10 +1061,6 @@ export default function AlocacoesApp() {
           </nav>
 
           <div className="ml-auto sm:ml-0 flex items-center gap-1">
-            <button onClick={exportExcel}
-              className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-md text-[13px] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors">
-              Excel
-            </button>
             <button onClick={() => setHelpOpen(v => !v)}
               className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors text-[14px]">
               ?
@@ -1338,7 +1334,7 @@ export default function AlocacoesApp() {
             {/* Cabeçalho: título "Planejamento" + nav semanal embaixo */}
             <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
               <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
-                Planejamento
+                Equipe
               </h1>
               <WeekNav
                 year={selectedYear} week={selectedWeek} start={start} end={end}
@@ -1515,9 +1511,6 @@ export default function AlocacoesApp() {
               </button>
               <button onClick={loadYear} disabled={loadingWeek} className={btnGhost}>
                 Carregar Ano
-              </button>
-              <button onClick={exportExcel} className={`${btnGhost} ml-auto`}>
-                Excel
               </button>
             </div>
 
