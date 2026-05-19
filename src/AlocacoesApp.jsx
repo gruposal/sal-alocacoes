@@ -1797,55 +1797,25 @@ export default function AlocacoesApp() {
               person={person}
               selectedWeek={selectedWeek}
               selectedYear={selectedYear}
-            />
-
-            {/* Records */}
-            <div className={`${card} mt-5`}>
-              <button onClick={() => setDbOpen(v => !v)}
-                className="w-full px-5 py-4 flex items-center justify-between rounded-2xl hover:bg-[var(--surface-alt)] transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-[17px]">Registros</span>
-                  <span className="text-[13px] text-[var(--text-3)] font-normal">{db.length}</span>
-                </div>
-                <span className="text-[var(--text-3)] text-[13px]">{dbOpen ? "▲" : "▼"}</span>
-              </button>
-
-              {dbOpen && (
-                <div className="border-t border-[var(--border-subtle)]">
-                  {/* Filter bar */}
+              recordsContent={(() => {
+                const recordsJsx = (
+                <div>
                   <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--border-subtle)]">
-                    <input
-                      value={dbFilter}
-                      onChange={e => setDbFilter(e.target.value)}
-                      placeholder="Filtrar por pessoa, projeto ou CC…"
-                      className={`${inputCls} max-w-xs`}
-                    />
-                    {dbFilter && (
-                      <button onClick={() => setDbFilter("")} className="text-[13px] text-[var(--text-3)] hover:text-black dark:hover:text-white">Limpar</button>
-                    )}
-                    <span className="ml-auto text-[13px] text-[var(--text-3)]">{filteredDb.length} registros</span>
+                    <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
+                      placeholder="Filtrar por pessoa, projeto ou CC…" className={`${inputCls} max-w-xs`} />
+                    {dbFilter && <button onClick={() => setDbFilter("")} className="text-[13px] text-[var(--text-3)] hover:text-black dark:hover:text-white">Limpar</button>}
+                    <span className="ml-auto text-[13px] text-[var(--text-3)]">{filteredDb.length} de {db.length} registros</span>
                   </div>
-
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
                       <thead>
                         <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]">
-                          {[
-                            { k: "ISO_Week",           label: "Sem." },
-                            { k: "Person",             label: "Pessoa" },
-                            { k: "Project",            label: "Projeto" },
-                            { k: "Business_Unit",      label: "CC" },
-                            { k: "Hours_Forecast",     label: "Prev." },
-                            { k: "Hours_Consolidated", label: "Real." },
-                            { k: "_desvio",            label: "Desvio" },
-                          ].map(col => (
+                          {[{k:"ISO_Week",label:"Sem."},{k:"Person",label:"Pessoa"},{k:"Project",label:"Projeto"},{k:"Business_Unit",label:"CC"},{k:"Hours_Forecast",label:"Prev."},{k:"Hours_Consolidated",label:"Real."},{k:"_desvio",label:"Desvio"}].map(col => (
                             <th key={col.k} className={th}>
                               {col.k === "_desvio" ? col.label : (
                                 <button onClick={() => toggleSort(col.k)} className="flex items-center gap-1 hover:text-black dark:hover:text-white transition-colors">
                                   {col.label}
-                                  {previewSort.field === col.k && (
-                                    <span className="text-[var(--accent)]">{previewSort.dir === "asc" ? "↑" : "↓"}</span>
-                                  )}
+                                  {previewSort.field === col.k && <span className="text-[var(--accent)]">{previewSort.dir === "asc" ? "↑" : "↓"}</span>}
                                 </button>
                               )}
                             </th>
@@ -1861,61 +1831,30 @@ export default function AlocacoesApp() {
                                 <td className={td}><span className="text-[var(--text-3)] text-[13px] tabular-nums">W{toTwo(r.ISO_Week)}</span></td>
                                 <td className={td}><Combobox value={editingValues.Person} onChange={v => changeEditing("Person", v)} options={people} placeholder="Pessoa…" className={inputCls} /></td>
                                 <td className={td}><Combobox value={editingValues.Project} onChange={v => changeEditing("Project", v)} options={projects} placeholder="Projeto…" className={inputCls} /></td>
-                                <td className={td}>
-                                  <select className={inputCls} value={editingValues.Business_Unit} onChange={e => changeEditing("Business_Unit", e.target.value)}>
-                                    {bus.map(b => <option key={b} value={b}>{b}</option>)}
-                                  </select>
-                                </td>
+                                <td className={td}><select className={inputCls} value={editingValues.Business_Unit} onChange={e => changeEditing("Business_Unit", e.target.value)}>{bus.map(b => <option key={b} value={b}>{b}</option>)}</select></td>
                                 <td className={td}><HoursInput value={editingValues.Hours_Forecast ?? ""} onChange={v => changeEditing("Hours_Forecast", v)} className={`${inputCls} w-16 text-center`} /></td>
                                 <td className={td}><HoursInput value={editingValues.Hours_Consolidated ?? ""} onChange={v => changeEditing("Hours_Consolidated", v)} className={`${inputCls} w-16 text-center`} /></td>
                                 <td className={td} />
-                                <td className={td}>
-                                  <div className="flex gap-2">
-                                    <button onClick={saveEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--accent)] text-white text-[13px] font-medium">Salvar</button>
-                                    <button onClick={cancelEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--surface-alt)] text-[13px]">↩</button>
-                                  </div>
-                                </td>
+                                <td className={td}><div className="flex gap-2"><button onClick={saveEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--accent)] text-white text-[13px] font-medium">Salvar</button><button onClick={cancelEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--surface-alt)] text-[13px]">↩</button></div></td>
                               </>
                             ) : (
                               <>
                                 <td className={`${td} tabular-nums text-[var(--text-3)] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
-                                <td className={`${td} font-medium text-[15px]`}>{r.Person}</td>
-                                <td className={`${td} text-[15px]`}>{r.Project}</td>
-                                <td className={td}>
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">
-                                    {r.Business_Unit}
-                                  </span>
-                                </td>
-                                <td className={`${td} text-center tabular-nums text-[15px]`}>{r.Hours_Forecast ?? "—"}</td>
-                                <td className={`${td} text-center tabular-nums text-[15px]`}>
-                                  {r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}
-                                </td>
-                                <td className={`${td} text-center`}>
-                                  {r.Hours_Consolidated != null
-                                    ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} />
-                                    : <span className="text-[var(--text-3)]">—</span>}
-                                </td>
-                                <td className={td}>
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px] transition-colors">✏</button>
-                                    <button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px] transition-colors">×</button>
-                                  </div>
-                                </td>
+                                <td className={`${td} font-medium`}>{r.Person}</td>
+                                <td className={td}>{r.Project}</td>
+                                <td className={td}><span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">{r.Business_Unit}</span></td>
+                                <td className={`${td} text-center tabular-nums`}>{r.Hours_Forecast ?? "—"}</td>
+                                <td className={`${td} text-center tabular-nums`}>{r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}</td>
+                                <td className={`${td} text-center`}>{r.Hours_Consolidated != null ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} /> : <span className="text-[var(--text-3)]">—</span>}</td>
+                                <td className={td}><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">✏</button><button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px]">×</button></div></td>
                               </>
                             )}
                           </tr>
                         ))}
-                        {!pagedDb.length && (
-                          <tr>
-                            <td colSpan={8} className="py-12 text-center text-[15px] text-[var(--text-3)]">
-                              {db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}
-                            </td>
-                          </tr>
-                        )}
+                        {!pagedDb.length && <tr><td colSpan={8} className="py-12 text-center text-[15px] text-[var(--text-3)]">{db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}</td></tr>}
                       </tbody>
                     </table>
                   </div>
-
                   {totalPages > 1 && (
                     <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
                       <span className="text-[13px] text-[var(--text-3)]">Página {currentPage} de {totalPages}</span>
@@ -1926,8 +1865,8 @@ export default function AlocacoesApp() {
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              ); return recordsJsx; })()}
+            />
           </>
         )}
 

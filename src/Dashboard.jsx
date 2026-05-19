@@ -231,7 +231,7 @@ function groupBy(rows, key) {
 const selectCls = "w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors";
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear }) {
+export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear, recordsContent }) {
   const [activeTab, setActiveTab] = useState("semana");
 
   // ── Aba Semana ───────────────────────────────────────────────────────────────
@@ -373,9 +373,10 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
 
   // ── Sub-tab nav ──────────────────────────────────────────────────────────────
   const TABS = [
-    { k: "semana",   label: "Semana" },
-    { k: "visao",    label: "Minha Visão" },
-    { k: "panorama", label: "Panorama" },
+    { k: "semana",    label: "Semana" },
+    { k: "visao",     label: "Minha Visão" },
+    { k: "panorama",  label: "Panorama" },
+    { k: "registros", label: "Registros" },
   ];
 
   return (
@@ -395,7 +396,18 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
         ))}
       </div>
 
-      {!hasData && (
+      {/* ══ REGISTROS ═══════════════════════════════════════════════════════════ */}
+      {activeTab === "registros" && (
+        <div className={card}>
+          {recordsContent || (
+            <div className="py-16 text-center text-[15px] text-[var(--text-3)]">
+              Use "Carregar Semana" ou "Carregar Ano" para ver os dados.
+            </div>
+          )}
+        </div>
+      )}
+
+      {!hasData && activeTab !== "registros" && (
         <div className="py-16 text-center text-[15px] text-[var(--text-3)]">
           Use "Carregar Semana" ou "Carregar Ano" para ver os dados.
         </div>
