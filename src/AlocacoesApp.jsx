@@ -1779,16 +1779,6 @@ export default function AlocacoesApp() {
         ══════════════════════════════════════════ */}
         {view === "dashboard" && (
           <>
-            {/* Load controls */}
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-              <button onClick={() => loadFromClickUp({ force: true })} disabled={loadingWeek || !person} className={btnGhost}>
-                {loadingWeek ? "Carregando…" : "Carregar Semana"}
-              </button>
-              <button onClick={loadYear} disabled={loadingWeek} className={btnGhost}>
-                Carregar Ano
-              </button>
-            </div>
-
             {/* Dashboard charts */}
             <Dashboard
               db={db}
