@@ -1790,7 +1790,14 @@ export default function AlocacoesApp() {
             </div>
 
             {/* Dashboard charts */}
-            <Dashboard db={db} projectMeta={projectMeta} />
+            <Dashboard
+              db={db}
+              projectMeta={projectMeta}
+              people={people}
+              person={person}
+              selectedWeek={selectedWeek}
+              selectedYear={selectedYear}
+            />
 
             {/* Records */}
             <div className={`${card} mt-5`}>
