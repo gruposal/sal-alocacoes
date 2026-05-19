@@ -1790,11 +1790,26 @@ export default function AlocacoesApp() {
               recordsContent={(() => {
                 const recordsJsx = (
                 <div>
-                  <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--border-subtle)]">
+                  {/* Seletor de semana no topo */}
+                  <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-3">
+                    <label className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide shrink-0">Semana</label>
+                    <select value={activeWeek ?? ''} onChange={e => setPreviewWeek(Number(e.target.value))}
+                      className={`${inputCls} max-w-[140px]`}>
+                      {previewWeeks.map(w => <option key={w} value={w}>W{String(w).padStart(2,'0')}</option>)}
+                    </select>
+                    <div className="flex gap-1">
+                      <button onClick={() => setPreviewWeek(previewWeeks[weekIdx + 1])} disabled={weekIdx >= previewWeeks.length - 1}
+                        className={`${btnGhost} py-1 px-2.5 text-[13px]`}>←</button>
+                      <button onClick={() => setPreviewWeek(previewWeeks[weekIdx - 1])} disabled={weekIdx <= 0}
+                        className={`${btnGhost} py-1 px-2.5 text-[13px]`}>→</button>
+                    </div>
+                    <span className="ml-auto text-[13px] text-[var(--text-3)]">{pagedDb.length} registro{pagedDb.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  {/* Filtro de texto */}
+                  <div className="px-4 py-2.5 flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]/40">
                     <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
                       placeholder="Filtrar por pessoa, projeto ou CC…" className={`${inputCls} max-w-xs`} />
                     {dbFilter && <button onClick={() => { setDbFilter(""); setPreviewWeek(null); }} className="text-[13px] text-[var(--text-3)] hover:text-black dark:hover:text-white">Limpar</button>}
-                    <span className="ml-auto text-[13px] text-[var(--text-3)]">{filteredDb.length} de {db.length} registros</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
