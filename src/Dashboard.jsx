@@ -440,8 +440,28 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
   const hasData = (db || []).length > 0;
 
   // ── Sub-tab nav ──────────────────────────────────────────────────────────────
+  // ── Aba Semana 2 — grade de ocupação por pessoa ──────────────────────────────
+  const ocupacaoPorPessoa = useMemo(() => {
+    const map = new Map();
+    for (const p of people) map.set(p, { person: p, forecast: 0, consolidated: 0 });
+    for (const r of weekRows) {
+      const p = r.Person;
+      if (!p) continue;
+      const agg = map.get(p) || { person: p, forecast: 0, consolidated: 0 };
+      agg.forecast     += Number(r.Hours_Forecast)     || 0;
+      agg.consolidated += Number(r.Hours_Consolidated) || 0;
+      map.set(p, agg);
+    }
+    return [...map.values()].sort((a, b) => b.forecast - a.forecast);
+  }, [weekRows, people]);
+
+  const totalCom40h = useMemo(() =>
+    ocupacaoPorPessoa.filter(p => p.forecast >= 40).length,
+  [ocupacaoPorPessoa]);
+
   const TABS = [
     { k: "semana",    label: "Semana" },
+    { k: "semana2",   label: "Ocupação" },
     { k: "visao",     label: "Minha Visão" },
     { k: "panorama",  label: "Panorama" },
     { k: "registros", label: "Registros" },
@@ -478,6 +498,76 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
       {!hasData && activeTab !== "registros" && (
         <div className="py-16 text-center text-[15px] text-[var(--text-3)]">
           Use "Carregar Semana" ou "Carregar Ano" para ver os dados.
+        </div>
+      )}
+
+      {/* ══ OCUPAÇÃO ════════════════════════════════════════════════════════════ */}
+      {hasData && activeTab === "semana2" && (
+        <div className="space-y-5">
+          {/* KPI principal */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard
+              label={`Com 40h — W${String(selectedWeek).padStart(2,'0')}`}
+              value={`${totalCom40h} / ${ocupacaoPorPessoa.length}`}
+              color={totalCom40h === ocupacaoPorPessoa.length ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}
+              accent={totalCom40h === ocupacaoPorPessoa.length ? 'var(--positive)' : 'var(--warning)'}
+            />
+            <KpiCard label="Parcialmente alocados" value={ocupacaoPorPessoa.filter(p => p.forecast > 0 && p.forecast < 40).length.toString()} color="text-[var(--accent)]" accent="var(--accent)" />
+            <KpiCard label="Sem alocação" value={ocupacaoPorPessoa.filter(p => p.forecast === 0).length.toString()} color="text-[var(--negative)]" accent="var(--negative)" />
+            <KpiCard label="Realizadas pendentes" value={alertPendentes.length.toString()} color={alertPendentes.length > 0 ? 'text-[var(--warning)]' : 'text-[var(--positive)]'} accent={alertPendentes.length > 0 ? 'var(--warning)' : 'var(--positive)'} />
+          </div>
+
+          {/* Grade de ocupação */}
+          <div className={card}>
+            <div className="px-5 py-4 border-b border-[var(--border-subtle)]">
+              <h3 className="font-semibold text-[15px]">Ocupação por Colaborador — W{String(selectedWeek).padStart(2,'0')}</h3>
+            </div>
+            <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {ocupacaoPorPessoa.map(p => {
+                const pct = Math.min(100, Math.round((p.forecast / 40) * 100));
+                const over = p.forecast > 40;
+                const full = p.forecast === 40;
+                const partial = p.forecast > 0 && p.forecast < 40;
+                const empty = p.forecast === 0;
+                const barColor = over ? 'var(--negative)' : full ? 'var(--positive)' : partial ? 'var(--accent)' : 'var(--border-strong)';
+                const badgeColor = over
+                  ? 'bg-[var(--negative)]/10 text-[var(--negative)]'
+                  : full
+                  ? 'bg-[var(--positive)]/10 text-[var(--positive)]'
+                  : partial
+                  ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'bg-[var(--surface-alt)] text-[var(--text-3)]';
+                const hasReal = p.consolidated > 0;
+                return (
+                  <div key={p.person} className={`${card} p-3 space-y-2`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13.5px] font-medium truncate" title={p.person}>{p.person}</span>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeColor}`}>
+                        {empty ? '0h' : `${p.forecast}h`}
+                      </span>
+                    </div>
+                    {/* Barra previstas */}
+                    <div className="h-2 rounded-full bg-[var(--surface-alt)] overflow-hidden">
+                      <div className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                    </div>
+                    {/* Realizadas (se houver) */}
+                    {hasReal && (
+                      <div className="flex items-center justify-between text-[11.5px] text-[var(--text-3)]">
+                        <span>Realizadas</span>
+                        <span className={`font-semibold tabular-nums ${p.consolidated >= p.forecast ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}`}>
+                          {p.consolidated}h
+                        </span>
+                      </div>
+                    )}
+                    {!hasReal && !empty && (
+                      <div className="text-[11px] text-[var(--text-3)]">Realizadas pendentes</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
