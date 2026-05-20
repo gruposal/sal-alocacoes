@@ -540,13 +540,23 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
             />
           </div>
 
+          {/* KPIs de ocupação */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard
+              label={`Com 40h — W${String(selectedWeek).padStart(2,'0')}`}
+              value={`${totalCom40h} / ${ocupacaoPorPessoa.length}`}
+              color={totalCom40h === ocupacaoPorPessoa.length ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}
+              accent={totalCom40h === ocupacaoPorPessoa.length ? 'var(--positive)' : 'var(--warning)'}
+            />
+            <KpiCard label="Parcialmente alocados" value={ocupacaoPorPessoa.filter(p => p.forecast > 0 && p.forecast < 40).length.toString()} color="text-[var(--accent)]" accent="var(--accent)" />
+            <KpiCard label="Sem alocação" value={ocupacaoPorPessoa.filter(p => p.forecast === 0).length.toString()} color="text-[var(--negative)]" accent="var(--negative)" />
+            <KpiCard label="Realizadas pendentes" value={alertPendentes.length.toString()} color={alertPendentes.length > 0 ? 'text-[var(--warning)]' : 'text-[var(--positive)]'} accent={alertPendentes.length > 0 ? 'var(--warning)' : 'var(--positive)'} />
+          </div>
+
           {/* Grade de ocupação por colaborador */}
           <div className={card}>
-            <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-[var(--border-subtle)]">
               <h3 className="font-semibold text-[15px]">Ocupação por Colaborador — W{String(selectedWeek).padStart(2,'0')}</h3>
-              <span className="text-[13px] text-[var(--text-3)] tabular-nums">
-                {totalCom40h} / {ocupacaoPorPessoa.length} com 40h
-              </span>
             </div>
             <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {ocupacaoPorPessoa.map(p => {
