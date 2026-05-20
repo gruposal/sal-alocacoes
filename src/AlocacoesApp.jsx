@@ -703,6 +703,7 @@ export default function AlocacoesApp() {
   const [editingValues, setEditingValues]   = useState(null);
   const [confirmDlg, setConfirmDlg]         = useState({ open: false, title: '', message: '', onConfirm: null });
   const [personModal, setPersonModal]       = useState(null); // null | nome da pessoa
+  const [recFilter, setRecFilter]           = useState({ person: "", project: "", cc: "" });
   const [view, setView]                     = useState(() => {
     const v = persisted.view;
     // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
@@ -1296,18 +1297,30 @@ export default function AlocacoesApp() {
     finally { setSaving(false); }
   }
 
-  const filteredDb = useMemo(() => {
-    if (!dbFilter) return db;
-    const f = dbFilter.toLowerCase();
-    return db.filter(r =>
-      String(r.Person).toLowerCase().includes(f) ||
-      String(r.Project).toLowerCase().includes(f) ||
-      String(r.Business_Unit).toLowerCase().includes(f)
-    );
-  }, [db, dbFilter]);
+  const isRecFilterActive = !!(dbFilter || recFilter.person || recFilter.project || recFilter.cc);
+
+  // Registros filtrados pelos filtros estruturados + texto (com normalização de acentos)
+  const recFiltered = useMemo(() => {
+    let rows = db || [];
+    if (recFilter.person)  rows = rows.filter(r => r.Person === recFilter.person);
+    if (recFilter.project) rows = rows.filter(r => r.Project === recFilter.project);
+    if (recFilter.cc)      rows = rows.filter(r => r.Business_Unit === recFilter.cc);
+    if (dbFilter) {
+      const q = normalizeMatch(dbFilter);
+      rows = rows.filter(r =>
+        normalizeMatch(String(r.Person)).includes(q) ||
+        normalizeMatch(String(r.Project)).includes(q) ||
+        normalizeMatch(String(r.Business_Unit)).includes(q)
+      );
+    }
+    return rows;
+  }, [db, recFilter, dbFilter]);
+
+  // Quando filtro ativo: usa recFiltered (todas as semanas). Senão: filtra só para semana ativa.
+  const filteredDb = isRecFilterActive ? recFiltered : (db || []);
 
   const sortedDb = useMemo(() => {
-    const arr = [...filteredDb];
+    const arr = [...(isRecFilterActive ? recFiltered : db || [])];
     const { field, dir } = previewSort;
     arr.sort((a, b) => {
       const va = a[field], vb = b[field];
@@ -1317,12 +1330,24 @@ export default function AlocacoesApp() {
       return dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
     });
     return arr;
-  }, [filteredDb, previewSort]);
+  }, [recFiltered, db, isRecFilterActive, previewSort]);
 
-  const previewWeeks = useMemo(() => [...new Set(filteredDb.map(r => r.ISO_Week).filter(Boolean))].sort((a, b) => b - a), [filteredDb]);
+  const previewWeeks = useMemo(() => [...new Set((db || []).map(r => r.ISO_Week).filter(Boolean))].sort((a, b) => b - a), [db]);
   const activeWeek   = previewWeek ?? previewWeeks[0] ?? null;
   const weekIdx      = previewWeeks.indexOf(activeWeek);
-  const pagedDb      = useMemo(() => sortedDb.filter(r => r.ISO_Week === activeWeek), [sortedDb, activeWeek]);
+  // Quando filtro ativo: mostra todos os registros filtrados. Senão: só a semana ativa.
+  const pagedDb      = useMemo(() => isRecFilterActive ? recFiltered.slice().sort((a, b) => {
+    const { field, dir } = previewSort;
+    const va = a[field], vb = b[field];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1; if (vb == null) return -1;
+    if (typeof va === "number" && typeof vb === "number") return dir === "asc" ? va - vb : vb - va;
+    return dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  }) : sortedDb.filter(r => r.ISO_Week === activeWeek), [isRecFilterActive, recFiltered, sortedDb, activeWeek, previewSort]);
+
+  const recPeople   = useMemo(() => [...new Set((db||[]).map(r=>r.Person).filter(Boolean))].sort(), [db]);
+  const recProjects = useMemo(() => [...new Set((db||[]).map(r=>r.Project).filter(Boolean))].sort(), [db]);
+  const recCcs      = useMemo(() => [...new Set((db||[]).map(r=>r.Business_Unit).filter(Boolean))].sort(), [db]);
 
   function toggleSort(f) {
     setPreviewSort(p => p.field === f ? { field: f, dir: p.dir === "asc" ? "desc" : "asc" } : { field: f, dir: "asc" });
@@ -2042,28 +2067,49 @@ export default function AlocacoesApp() {
               selectedWeek={selectedWeek}
               selectedYear={selectedYear}
               recordsContent={(() => {
+                const visibleRows = pagedDb;
+                const totalF = visibleRows.reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
+                const totalC = visibleRows.reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0);
+                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); };
                 const recordsJsx = (
                 <div>
-                  {/* Seletor de semana no topo */}
-                  <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-3">
-                    <label className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide shrink-0">Semana</label>
-                    <select value={activeWeek ?? ''} onChange={e => setPreviewWeek(Number(e.target.value))}
-                      className={`${inputCls} max-w-[140px]`}>
-                      {previewWeeks.map(w => <option key={w} value={w}>W{String(w).padStart(2,'0')}</option>)}
-                    </select>
-                    <div className="flex gap-1">
-                      <button onClick={() => setPreviewWeek(previewWeeks[weekIdx + 1])} disabled={weekIdx >= previewWeeks.length - 1}
-                        className={`${btnGhost} py-1 px-2.5 text-[13px]`}>←</button>
-                      <button onClick={() => setPreviewWeek(previewWeeks[weekIdx - 1])} disabled={weekIdx <= 0}
-                        className={`${btnGhost} py-1 px-2.5 text-[13px]`}>→</button>
+                  {/* Filtros estruturados */}
+                  <div className="px-4 py-3 border-b border-[var(--border-subtle)] space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Pessoa</label>
+                        <select value={recFilter.person} onChange={e => setRecFilter(f => ({ ...f, person: e.target.value }))} className={inputCls}>
+                          <option value="">Todas</option>
+                          {recPeople.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Projeto</label>
+                        <select value={recFilter.project} onChange={e => setRecFilter(f => ({ ...f, project: e.target.value }))} className={inputCls}>
+                          <option value="">Todos</option>
+                          {recProjects.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">CC</label>
+                        <select value={recFilter.cc} onChange={e => setRecFilter(f => ({ ...f, cc: e.target.value }))} className={inputCls}>
+                          <option value="">Todos</option>
+                          {recCcs.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <span className="ml-auto text-[13px] text-[var(--text-3)]">{pagedDb.length} registro{pagedDb.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  {/* Filtro de texto */}
-                  <div className="px-4 py-2.5 flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]/40">
-                    <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
-                      placeholder="Filtrar por pessoa, projeto ou CC…" className={`${inputCls} max-w-xs`} />
-                    {dbFilter && <button onClick={() => { setDbFilter(""); setPreviewWeek(null); }} className="text-[13px] text-[var(--text-3)] hover:text-black dark:hover:text-white">Limpar</button>}
+                    <div className="flex items-center gap-3">
+                      <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
+                        placeholder="Busca livre…" className={`${inputCls} max-w-xs`} />
+                      {isRecFilterActive && (
+                        <button onClick={clearAll} className="text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">↺ Limpar</button>
+                      )}
+                      <span className="ml-auto text-[13px] text-[var(--text-3)] tabular-nums">
+                        {isRecFilterActive
+                          ? `${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''} encontrado${visibleRows.length !== 1 ? 's' : ''}`
+                          : `W${String(activeWeek ?? '').padStart(2,'0')} · ${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''}`}
+                      </span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
@@ -2083,7 +2129,7 @@ export default function AlocacoesApp() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border-subtle)]">
-                        {pagedDb.map(r => (
+                        {visibleRows.map(r => (
                           <tr key={r.ID} className="group hover:bg-[var(--surface-alt)] transition-colors">
                             <>
                               <td className={`${td} tabular-nums text-[var(--text-3)] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
@@ -2097,15 +2143,24 @@ export default function AlocacoesApp() {
                             </>
                           </tr>
                         ))}
-                        {!pagedDb.length && <tr><td colSpan={8} className="py-12 text-center text-[15px] text-[var(--text-3)]">{db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}</td></tr>}
+                        {!visibleRows.length && <tr><td colSpan={8} className="py-12 text-center text-[15px] text-[var(--text-3)]">{db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}</td></tr>}
                       </tbody>
+                      {visibleRows.length > 0 && (
+                        <tfoot>
+                          <tr className="border-t-2 border-[var(--border-subtle)] bg-[var(--surface-alt)]/50">
+                            <td colSpan={4} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]">
+                              Total · {visibleRows.length} registro{visibleRows.length !== 1 ? 's' : ''}
+                            </td>
+                            <td className="px-3 py-2 text-center tabular-nums font-semibold text-[var(--text-1)]">{totalF > 0 ? `${totalF}h` : '—'}</td>
+                            <td className="px-3 py-2 text-center tabular-nums font-semibold text-[var(--text-1)]">{totalC > 0 ? `${totalC}h` : '—'}</td>
+                            <td colSpan={2} />
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
                   </div>
-                  {previewWeeks.length > 0 && (
-                    <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                      <span className="text-[13px] text-[var(--text-3)]">
-                        W{String(activeWeek).padStart(2,'0')} · {pagedDb.length} registro{pagedDb.length !== 1 ? 's' : ''}
-                      </span>
+                  {!isRecFilterActive && previewWeeks.length > 0 && (
+                    <div className="px-4 py-3 border-t border-[var(--border-subtle)] flex items-center justify-end">
                       <div className="flex items-center gap-1">
                         <button onClick={() => setPreviewWeek(previewWeeks[weekIdx + 1])} disabled={weekIdx >= previewWeeks.length - 1} className={`${btnGhost} py-1.5 px-3`}>←</button>
                         <select value={activeWeek ?? ''} onChange={e => setPreviewWeek(Number(e.target.value))}
