@@ -280,7 +280,7 @@ function groupBy(rows, key) {
 const selectCls = "w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors";
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear, recordsContent, onRefresh, loadingHistory }) {
+export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear, recordsContent, onRefresh, loadingHistory, onPersonCardClick }) {
   const [activeTab, setActiveTab] = useState("semana");
   const [ocupFilter, setOcupFilter] = useState(null); // 'sem-alocacao' | 'parcial' | 'com40h' | 'pendentes'
 
@@ -603,7 +603,7 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                       : 'bg-[var(--surface-alt)] text-[var(--text-3)]';
                     const hasReal = p.consolidated > 0;
                     return (
-                      <div key={p.person} className={`${card} p-3 space-y-2`}>
+                      <div key={p.person} onClick={() => onPersonCardClick?.(p.person)} className={`${card} p-3 space-y-2 ${onPersonCardClick ? 'cursor-pointer hover:ring-1 hover:ring-[var(--accent)] transition-shadow' : ''}`}>
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[13.5px] font-medium truncate" title={p.person}>{p.person}</span>
                           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeColor}`}>

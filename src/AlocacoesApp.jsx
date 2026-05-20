@@ -466,6 +466,99 @@ function DesvioCell({ forecast, consolidated, onReplicate }) {
   );
 }
 
+// ─── PersonWeekModal ──────────────────────────────────────────────────────────
+function PersonWeekModal({ personName, week, year, db, people, projects, bus, inputCls, onClose, onEditRow, onDeleteRow }) {
+  const rows = (db || []).filter(r => r.Year === year && r.ISO_Week === week && r.Person === personName);
+  useEffect(() => {
+    if (!personName) return;
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [personName, onClose]);
+  if (!personName) return null;
+  const th = "px-3 py-2 text-left text-[10.5px] font-semibold text-[var(--text-3)] uppercase tracking-[0.06em]";
+  const td = "px-3 py-2 text-[13.5px]";
+  const totalF = rows.reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
+  const totalC = rows.reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0);
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[17px] font-semibold text-[var(--text-1)]">{personName}</h2>
+            <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-3)]">
+              W{String(week).padStart(2,'0')} / {year}
+            </span>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--surface-alt)] text-[var(--text-3)] text-[18px] leading-none transition-colors">×</button>
+        </div>
+        {/* Body */}
+        <div className="overflow-auto flex-1">
+          {rows.length === 0 ? (
+            <div className="py-16 text-center text-[15px] text-[var(--text-3)]">Nenhum registro para esta semana.</div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]/50">
+                  <th className={th}>Projeto</th>
+                  <th className={th}>CC</th>
+                  <th className={`${th} text-right`}>Prev.</th>
+                  <th className={`${th} text-right`}>Real.</th>
+                  <th className={`${th} text-right`}>Desvio</th>
+                  <th className={th} />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-subtle)]">
+                {rows.map(r => {
+                  const fc = Number(r.Hours_Forecast) || 0;
+                  const co = r.Hours_Consolidated != null ? Number(r.Hours_Consolidated) : null;
+                  const d = co != null ? co - fc : null;
+                  return (
+                    <tr key={r.ID} className="group hover:bg-[var(--surface-alt)] transition-colors">
+                      <td className={`${td} font-medium`}>{r.Project}</td>
+                      <td className={td}><span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">{r.Business_Unit}</span></td>
+                      <td className={`${td} text-right tabular-nums`}>{fc}h</td>
+                      <td className={`${td} text-right tabular-nums`}>{co != null ? co + 'h' : <span className="text-[var(--text-3)]">—</span>}</td>
+                      <td className={`${td} text-right`}>
+                        {d != null ? (
+                          d === 0 ? <span className="text-[var(--positive)] font-semibold">0h</span>
+                          : d > 0  ? <span className="text-[var(--negative)] font-semibold">+{d}h</span>
+                          :          <span className="text-[var(--warning)] font-semibold">{d}h</span>
+                        ) : <span className="text-[var(--text-3)]">—</span>}
+                      </td>
+                      <td className="pr-3 text-right">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                          <button onClick={() => onEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">✏</button>
+                          <button onClick={() => onDeleteRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px]">×</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-[var(--border-subtle)] bg-[var(--surface-alt)]/50">
+                  <td colSpan={2} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]">Total</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold text-[var(--text-1)]">{totalF}h</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold text-[var(--text-1)]">{totalC > 0 ? totalC + 'h' : '—'}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-[var(--border-subtle)] flex justify-end shrink-0">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-[var(--surface-alt)] text-[var(--text-2)] hover:bg-[var(--border-subtle)] transition-colors">Fechar</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ─── ConfirmDialog ────────────────────────────────────────────────────────────
 function ConfirmDialog({ open, title, message, onConfirm, onCancel, confirmLabel = "Confirmar", danger = true }) {
   useEffect(() => {
@@ -609,6 +702,7 @@ export default function AlocacoesApp() {
   const [editingId, setEditingId]           = useState(null);
   const [editingValues, setEditingValues]   = useState(null);
   const [confirmDlg, setConfirmDlg]         = useState({ open: false, title: '', message: '', onConfirm: null });
+  const [personModal, setPersonModal]       = useState(null); // null | nome da pessoa
   const [view, setView]                     = useState(() => {
     const v = persisted.view;
     // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
@@ -1943,6 +2037,7 @@ export default function AlocacoesApp() {
               people={people}
               person={person}
               onRefresh={refreshYear}
+              onPersonCardClick={name => setPersonModal(name)}
               loadingHistory={loadingHistory}
               selectedWeek={selectedWeek}
               selectedYear={selectedYear}
@@ -2029,6 +2124,21 @@ export default function AlocacoesApp() {
 
         {view === "directory" && <Directory onListsChanged={loadLists} />}
       </main>
+
+      {/* ── PersonWeekModal ── */}
+      <PersonWeekModal
+        personName={personModal}
+        week={selectedWeek}
+        year={selectedYear}
+        db={db}
+        people={people}
+        projects={projects}
+        bus={bus}
+        inputCls={inputCls}
+        onClose={() => setPersonModal(null)}
+        onEditRow={startEditRow}
+        onDeleteRow={deleteDbRow}
+      />
 
       {/* ── ConfirmDialog ── */}
       <ConfirmDialog
