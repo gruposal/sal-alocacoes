@@ -678,13 +678,7 @@ export default function AlocacoesApp() {
   // Ano/semana sempre começam na corrente — persisted é ignorado intencionalmente.
   const [selectedYear, setSelectedYear]   = useState(today.getFullYear());
   const [selectedWeek, setSelectedWeek]   = useState(getISOWeek(today));
-  const [person, setPerson]               = useState(persisted.person || "");
   const { start, end } = useMemo(() => weekStartEnd(selectedYear, selectedWeek), [selectedYear, selectedWeek]);
-
-  const blankEntry = () => ({ id: uid(), project: "", businessUnit: bus[0] || "", hours_forecast: "", hours_consolidated: "" });
-  const [entries, setEntries] = useState(() =>
-    Array.isArray(persisted.entries) && persisted.entries.length ? persisted.entries : [blankEntry()]
-  );
   const [db, setDb]                         = useState(() => _dbRows || []);
   const [dbFilter, setDbFilter]             = useState("");
   const [dbOpen, setDbOpen]                 = useState(false);
@@ -708,8 +702,7 @@ export default function AlocacoesApp() {
   const [recSelected, setRecSelected]       = useState(new Set());
   const [view, setView]                     = useState(() => {
     const v = persisted.view;
-    // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
-    if (v === "directory" || v === "timesheet" || !v) return "lancar";
+    if (!v || v === "directory" || v === "timesheet" || v === "lancar" || v === "planning") return "alocacoes";
     return v;
   });
   const [theme, setTheme]                   = useState(() => {
@@ -724,7 +717,7 @@ export default function AlocacoesApp() {
   // Token agora é injetado pelo proxy /api/clickup server-side. Limpa resíduo antigo do localStorage.
   useEffect(() => { try { localStorage.removeItem('cu:token'); } catch {} }, []);
 
-  const blankPlanRow   = () => ({ id: uid(), businessUnit: bus[0] || "", project: "", hours_forecast: "" });
+  const blankPlanRow   = () => ({ id: uid(), businessUnit: bus[0] || "", project: "", hours_forecast: "", hours_consolidated: "" });
   const blankPlanGroup = () => ({ id: uid(), person: "", rows: [blankPlanRow()] });
   const [planGroups, setPlanGroups] = useState(() => {
     const saved = safeJsonParse(localStorage.getItem("ts:plan:v1") || "null", null);
@@ -751,9 +744,9 @@ export default function AlocacoesApp() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PERSIST_KEY, JSON.stringify({ selectedYear, selectedWeek, person, entries, view, theme }));
+      localStorage.setItem(PERSIST_KEY, JSON.stringify({ selectedYear, selectedWeek, view, theme }));
     } catch {}
-  }, [selectedYear, selectedWeek, person, entries, view, theme]);
+  }, [selectedYear, selectedWeek, view, theme]);
 
   useEffect(() => {
     try { localStorage.setItem("ts:plan:v1", JSON.stringify(planGroups)); } catch {}
@@ -774,10 +767,9 @@ export default function AlocacoesApp() {
       if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); setHelpOpen(v => !v); }
       if (e.key === "?" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setHelpOpen(v => !v); }
       if (e.shiftKey) {
-        if (e.key === "1") { e.preventDefault(); setView("lancar"); }
-        if (e.key === "2") { e.preventDefault(); setView("planning"); }
-        if (e.key === "3") { e.preventDefault(); setView("projeto"); }
-        if (e.key === "4") { e.preventDefault(); setView("dashboard"); }
+        if (e.key === "1") { e.preventDefault(); setView("alocacoes"); }
+        if (e.key === "2") { e.preventDefault(); setView("projeto"); }
+        if (e.key === "3") { e.preventDefault(); setView("dashboard"); }
       }
     }
     window.addEventListener("keydown", onKey);
@@ -932,18 +924,6 @@ export default function AlocacoesApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedYear]);
 
-  useEffect(() => {
-    if (people.length && person && !people.includes(person)) setPerson("");
-  }, [people]);
-
-  // Auto-carrega dados do ClickUp quando pessoa, ano ou semana mudam (apenas na aba Lançar).
-  // Silent = não abre o painel de DB nem mostra toast — UX de "abriu/selecionou, já tá lá".
-  useEffect(() => {
-    if (view !== "lancar" || !person) return;
-    loadFromClickUp({ silent: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [person, selectedYear, selectedWeek, view]);
-
   function prevWeek() {
     if (selectedWeek > 1) setSelectedWeek(w => w - 1);
     else { setSelectedYear(y => y - 1); setSelectedWeek(52); }
@@ -958,47 +938,10 @@ export default function AlocacoesApp() {
     setSelectedWeek(getISOWeek(t));
   }
 
-  const totalForecast     = useMemo(() => entries.reduce((s, e) => s + (Number(e.hours_forecast) || 0), 0), [entries]);
-  const totalConsolidated = useMemo(() => entries.reduce((s, e) => s + (Number(e.hours_consolidated) || 0), 0), [entries]);
-  const desvioTotal       = totalConsolidated - totalForecast;
-
-  function updateEntry(id, field, value) {
-    setEntries(prev => prev.map(e => {
-      if (e.id !== id) return e;
-      const next = { ...e };
-      if (field === "hours_forecast" || field === "hours_consolidated") {
-        if (value === "") { next[field] = ""; return next; }
-        let n = parseInt(value, 10);
-        if (isNaN(n)) n = 0;
-        n = Math.max(0, Math.min(40, n));
-        if (field === "hours_forecast") {
-          const otherTotal = prev.filter(r => r.id !== id).reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
-          if (otherTotal + n > 40) { n = Math.max(0, 40 - otherTotal); showToast("Limite de 40h atingido."); }
-        }
-        next[field] = n;
-      } else { next[field] = value; }
-      // Auto-preenche CC quando seleciona projeto, se o mapa souber.
-      if (field === "project" && value && projectToCc[value]) {
-        next.businessUnit = projectToCc[value];
-      }
-      return next;
-    }));
-  }
-
   function askConfirm(message, onConfirm, title = '') {
     setConfirmDlg({ open: true, title, message, onConfirm });
   }
   function closeConfirm() { setConfirmDlg(d => ({ ...d, open: false, onConfirm: null })); }
-
-  function addRow()       { setEntries(p => [...p, blankEntry()]); }
-  function removeRow(id)  {
-    if (entries.length === 1) return;
-    askConfirm("Remover esta linha?", () => {
-      setEntries(p => p.filter(e => e.id !== id));
-      closeConfirm();
-    }, "Remover linha");
-  }
-  function clearEntries() { setEntries([blankEntry()]); }
 
   // ─── Planning (multi-person) ──────────────────────────────────────────────
   function addPlanGroup() { setPlanGroups(p => [...p, blankPlanGroup()]); }
@@ -1027,6 +970,7 @@ export default function AlocacoesApp() {
             project: r.Project,
             businessUnit: r.Business_Unit || (bus[0] || ""),
             hours_forecast: r.Hours_Forecast ?? "",
+            hours_consolidated: r.Hours_Consolidated ?? "",
           })),
         };
       }));
@@ -1043,6 +987,16 @@ export default function AlocacoesApp() {
   }
   function addPlanRow(gid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: [...g.rows, blankPlanRow()] } : g)); }
   function removePlanRow(gid, rid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: g.rows.filter(r => r.id !== rid) } : g)); }
+  function replicatePlanRow(gid, rid) {
+    setPlanGroups(p => p.map(g => g.id !== gid ? g : {
+      ...g, rows: g.rows.map(r => r.id !== rid ? r : { ...r, hours_consolidated: r.hours_forecast }),
+    }));
+  }
+  function replicateAllPlanRows(gid) {
+    setPlanGroups(p => p.map(g => g.id !== gid ? g : {
+      ...g, rows: g.rows.map(r => ({ ...r, hours_consolidated: r.hours_forecast })),
+    }));
+  }
   function updatePlanRow(gid, rid, field, value) {
     setPlanGroups(prev => prev.map(g => {
       if (g.id !== gid) return g;
@@ -1058,6 +1012,12 @@ export default function AlocacoesApp() {
             const otherTotal = g.rows.filter(pr => pr.id !== rid).reduce((s, pr) => s + (Number(pr.hours_forecast) || 0), 0);
             if (otherTotal + n > 40) { n = Math.max(0, 40 - otherTotal); showToast(`Cap 40h atingido${g.person ? ` — ${g.person}` : ""}.`); }
             return { ...r, hours_forecast: n };
+          }
+          if (field === "hours_consolidated") {
+            if (value === "") return { ...r, hours_consolidated: "" };
+            let n = parseInt(value, 10);
+            if (isNaN(n)) n = 0;
+            return { ...r, hours_consolidated: Math.max(0, Math.min(40, n)) };
           }
           const next = { ...r, [field]: value };
           // Auto-preenche CC quando seleciona projeto, se o mapa souber.
@@ -1145,103 +1105,6 @@ export default function AlocacoesApp() {
     finally { setSaving(false); }
   }
 
-  async function savePlan() {
-    const rows = planGroups.flatMap(g =>
-      g.rows
-        .filter(r => g.person && r.project && Number(r.hours_forecast) > 0)
-        .map(r => ({
-          Year: selectedYear, ISO_Week: selectedWeek,
-          Person: g.person, Project: r.project, Business_Unit: r.businessUnit,
-          Hours_Forecast: Number(r.hours_forecast), Hours_Consolidated: null,
-        }))
-    );
-    if (!rows.length) { showToast("Preencha pessoa, projeto e horas em pelo menos uma linha."); return; }
-    try {
-      setSaving(true);
-      await upsertForecast(rows);
-      showToast(`Planejamento salvo — ${rows.length} linha${rows.length > 1 ? "s" : ""}.`);
-    } catch (e) { console.warn(e); showToast("Erro ao salvar planejamento."); }
-    finally { setSaving(false); }
-  }
-
-  function buildCuRows() {
-    return entries
-      .filter(e => Number(e.hours_forecast) > 0 || Number(e.hours_consolidated) > 0)
-      .map(e => ({
-        Year: selectedYear, ISO_Week: selectedWeek, Person: person,
-        Project: e.project, Business_Unit: e.businessUnit,
-        Hours_Forecast: Number(e.hours_forecast) || null,
-        Hours_Consolidated: Number(e.hours_consolidated) || null,
-      }));
-  }
-
-  async function save() {
-    if (!person) { showToast("Selecione a pessoa."); return; }
-    const rows = buildCuRows();
-    if (!rows.length) { showToast("Nenhum dado para salvar."); return; }
-    try {
-      setSaving(true);
-      const forecastRows     = rows.filter(r => r.Hours_Forecast != null);
-      const consolidatedRows = rows.filter(r => r.Hours_Consolidated != null);
-      if (forecastRows.length)     await upsertForecast(forecastRows);
-      if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
-      showToast(`Salvo (${rows.length} linha${rows.length > 1 ? "s" : ""}).`);
-      loadFromClickUp({ silent: true, force: true });
-    } catch (e) {
-      console.error("save error:", e);
-      showToast(`Erro ao salvar: ${e?.message || 'verifique o console.'}`);
-    }
-    finally { setSaving(false); }
-  }
-
-  // Merge: substitui no db as linhas da semana pelo novo conjunto (mantém o resto do ano).
-  function mergeWeekIntoDb(year, week, weekRows) {
-    setDb(prev => {
-      const others = prev.filter(r => !(r.Year === year && r.ISO_Week === week));
-      return [...others, ...weekRows];
-    });
-  }
-
-  // Carrega entries da pessoa pra UI. Se o cache anual já tem o ano,
-  // FILTRA EM MEMÓRIA (instantâneo). Senão, busca a semana e merge no cache.
-  // `force=true` (botão Carregar Semana): sempre busca fresh + merge.
-  async function loadFromClickUp({ silent = false, force = false } = {}) {
-    if (!person) {
-      if (!silent) showToast("Selecione a pessoa primeiro.");
-      return;
-    }
-    const yearReady = dbScope === `year-${selectedYear}`;
-    try {
-      let rows;
-      if (yearReady && !force) {
-        // Cache hit: filtra em memória, sem rede
-        rows = db.filter(r => r.Year === selectedYear && r.ISO_Week === selectedWeek);
-      } else {
-        // Cache miss (ou refresh forçado): busca só esta semana e merge no cache
-        setLoadingWeek(true);
-        rows = await loadForWeek(selectedYear, selectedWeek);
-        mergeWeekIntoDb(selectedYear, selectedWeek, rows);
-      }
-      mergeRowsIntoCcMap(rows);
-      if (!silent) setDbOpen(true);
-      const mine = rows.filter(r => r.Person === person);
-      if (mine.length) {
-        setEntries(mine.map(r => ({
-          id: uid(), project: r.Project, businessUnit: r.Business_Unit,
-          hours_forecast: r.Hours_Forecast ?? "",
-          hours_consolidated: r.Hours_Consolidated ?? "",
-        })));
-      } else {
-        // Pessoa selecionada mas sem dados na semana — limpa para não mostrar entries de outra pessoa
-        setEntries([blankEntry()]);
-      }
-      if (!silent) showToast(`${rows.length} registro${rows.length !== 1 ? "s" : ""} carregado${rows.length !== 1 ? "s" : ""}.`);
-    } catch (e) {
-      console.error("loadFromClickUp error:", e);
-      if (!silent) showToast(`Erro ao carregar: ${e?.message || String(e)}`);
-    }
-    finally { setLoadingWeek(false); }
-  }
 
   async function loadYear() {
     try {
@@ -1280,6 +1143,29 @@ export default function AlocacoesApp() {
       },
       "Excluir registro"
     );
+  }
+
+  async function saveAlocacoes() {
+    const allRows = planGroups.flatMap(g =>
+      g.rows
+        .filter(r => g.person && r.project && (Number(r.hours_forecast) > 0 || Number(r.hours_consolidated) > 0))
+        .map(r => ({
+          Year: selectedYear, ISO_Week: selectedWeek,
+          Person: g.person, Project: r.project, Business_Unit: r.businessUnit,
+          Hours_Forecast:     Number(r.hours_forecast)     || null,
+          Hours_Consolidated: Number(r.hours_consolidated) || null,
+        }))
+    );
+    if (!allRows.length) { showToast("Preencha pessoa, projeto e horas em pelo menos uma linha."); return; }
+    try {
+      setSaving(true);
+      const forecastRows     = allRows.filter(r => r.Hours_Forecast != null);
+      const consolidatedRows = allRows.filter(r => r.Hours_Consolidated != null);
+      if (forecastRows.length)     await upsertForecast(forecastRows);
+      if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
+      showToast(`Salvo — ${allRows.length} linha${allRows.length > 1 ? "s" : ""}.`);
+    } catch (e) { console.warn(e); showToast("Erro ao salvar."); }
+    finally { setSaving(false); }
   }
 
   function startEditRow(row)   { setEditingId(row.ID); setEditingValues({ ...row }); }
@@ -1375,10 +1261,9 @@ export default function AlocacoesApp() {
   const sep       = "divide-y divide-[var(--border-subtle)]";
 
   const TABS = [
-    { k: "lancar",    label: "Individual", icon: "⏱" },
-    { k: "planning",  label: "Equipe",     icon: "📅" },
-    { k: "projeto",   label: "Projeto",    icon: "🗂" },
-    { k: "dashboard", label: "Painel",     icon: "📊" },
+    { k: "alocacoes",  label: "Horas",   icon: "⏱" },
+    { k: "projeto",    label: "Projeto", icon: "🗂" },
+    { k: "dashboard",  label: "Painel",  icon: "📊" },
   ];
 
   const loadingLabel = saving ? 'Salvando…'
@@ -1434,264 +1319,13 @@ export default function AlocacoesApp() {
       <main className="w-full px-6 sm:px-10 lg:px-16 xl:px-24 py-8 pb-32 sm:pb-16 space-y-10">
 
         {/* ══════════════════════════════════════════
-            LANÇAR  (jornada do colaborador)
+            HORAS
         ══════════════════════════════════════════ */}
-        {view === "lancar" && (
+        {view === "alocacoes" && (
           <>
-            {/* Cabeçalho: Pessoa = título-botão grande (linha 1) | Semana+Status+Atualizar juntos (linha 2) */}
-            <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
-              <PersonTitle
-                value={person}
-                onChange={setPerson}
-                options={people}
-                loading={people.length === 0}
-              />
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <WeekNav
-                  year={selectedYear} week={selectedWeek} start={start} end={end}
-                  onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
-                />
-                <div className="flex items-center gap-2 text-[12.5px] text-[var(--text-2)]">
-                  <WeekStatus entries={entries} />
-                  <span className="text-[var(--text-3)]">·</span>
-                  <button onClick={() => loadFromClickUp({ force: true })} disabled={loadingWeek || !person}
-                    className="hover:text-[var(--accent)] disabled:opacity-40 transition-colors">
-                    {loadingWeek ? "Atualizando…" : "↻ Atualizar"}
-                  </button>
-                </div>
-              </div>
-            </header>
-
-            {/* Entry list — tabela em sm+ / cards verticais no mobile */}
-
-            {/* MOBILE: cards (uma entry por bloco, sem scroll horizontal) */}
-            <div className="sm:hidden space-y-2">
-              {loadingWeek && !entries.some(e => e.project || e.hours_forecast || e.hours_consolidated) ? (
-                <>
-                  <div className="h-32 bg-[var(--surface)] rounded-lg border border-[var(--border-subtle)] animate-pulse" />
-                  <div className="h-32 bg-[var(--surface)] rounded-lg border border-[var(--border-subtle)] animate-pulse" />
-                </>
-              ) : entries.map(e => (
-                <div key={e.id} className={`${card} p-3 space-y-2.5`}>
-                  {/* Linha 1: Projeto + Remover */}
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <Combobox
-                        value={e.project}
-                        onChange={val => updateEntry(e.id, "project", val)}
-                        options={projects}
-                        placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
-                        className={`${inputCls} font-medium`}
-                      />
-                    </div>
-                    <button onClick={() => removeRow(e.id)} aria-label="Remover"
-                      className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[18px] leading-none shrink-0">
-                      ×
-                    </button>
-                  </div>
-                  {/* Linha 2: CC (pill leve, full-width select escondido) */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] w-12 shrink-0">CC</span>
-                    <select
-                      value={e.businessUnit}
-                      onChange={ev => updateEntry(e.id, "businessUnit", ev.target.value)}
-                      className="flex-1 bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1"
-                    >
-                      {bus.map(b => <option key={b} value={b}>● {b}</option>)}
-                    </select>
-                  </div>
-                  {/* Linha 3: Previstas | Realizadas | Desvio (grid 3 colunas iguais) */}
-                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[var(--border-subtle)]">
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] mb-1">Previstas</div>
-                      <HoursInput
-                        value={e.hours_forecast}
-                        onChange={v => updateEntry(e.id, "hours_forecast", v)}
-                        placeholder="0"
-                        className={`${inputCls} text-center tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] mb-1">Realizadas</div>
-                      <HoursInput
-                        value={e.hours_consolidated}
-                        onChange={v => updateEntry(e.id, "hours_consolidated", v)}
-                        placeholder="—"
-                        className={`${inputCls} text-center tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)] mb-1">Desvio</div>
-                      <div className="h-9 flex items-center justify-center text-[14px]">
-                        <DesvioCell
-                          forecast={e.hours_forecast}
-                          consolidated={e.hours_consolidated}
-                          onReplicate={() => updateEntry(e.id, "hours_consolidated", String(Number(e.hours_forecast) || 0))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {/* Botão adicionar — abaixo dos cards. Limpar à direita (discreto) */}
-              <div className="flex items-stretch gap-2">
-                <button onClick={addRow}
-                  className="flex-1 py-2.5 rounded-lg border border-dashed border-[var(--border-strong)] text-[14px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
-                  + Adicionar projeto
-                </button>
-                {entries.length > 1 && (
-                  <button onClick={clearEntries}
-                    title="Limpar todos os projetos"
-                    className="px-3 rounded-lg text-[13px] text-[var(--text-3)] hover:text-[var(--negative)] hover:bg-[var(--negative)]/5 transition-colors">
-                    Limpar
-                  </button>
-                )}
-              </div>
-              {/* Total no mobile */}
-              {entries.length > 0 && (
-                <div className={`${card} p-3 flex items-center justify-between bg-[var(--surface-alt)]`}>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Total</span>
-                  <div className="flex items-center gap-4 text-[14px]">
-                    <span className={`tabular-nums font-semibold ${totalForecast > 40 ? "text-[var(--negative)]" : "text-[var(--text-1)]"}`}>{totalForecast}h prev</span>
-                    {totalConsolidated > 0 && (
-                      <span className="tabular-nums font-semibold text-[var(--text-1)]">{totalConsolidated}h real</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* DESKTOP/TABLET: tabela tradicional */}
-            <div className={`hidden sm:block ${card} overflow-x-auto`}>
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--border-subtle)]">
-                    <th className={th} style={{ minWidth: 220 }}>Projeto</th>
-                    <th className={th}>Centro de Custo</th>
-                    <th className={`${th} text-right`} style={{ width: 110 }}>Previstas</th>
-                    <th className={`${th} text-right`} style={{ width: 110 }}>Realizadas</th>
-                    <th className={`${th} text-right`} style={{ width: 90 }}>Desvio</th>
-                    <th style={{ width: 40 }} />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-subtle)]">
-                  {loadingWeek && !entries.some(e => e.project || e.hours_forecast || e.hours_consolidated) ? (
-                    <>
-                      <SkeletonRow cells={6} />
-                      <SkeletonRow cells={6} />
-                      <SkeletonRow cells={6} />
-                    </>
-                  ) : entries.map(e => (
-                    <tr key={e.id} className="group hover:bg-[var(--surface-alt)]/60 transition-colors">
-                      <td className={td}>
-                        <Combobox
-                          value={e.project}
-                          onChange={val => updateEntry(e.id, "project", val)}
-                          options={projects}
-                          placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
-                          className={`${inputCls} font-medium`}
-                        />
-                      </td>
-                      <td className={td}>
-                        <select
-                          value={e.businessUnit}
-                          onChange={ev => updateEntry(e.id, "businessUnit", ev.target.value)}
-                          className="bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1 px-1 rounded hover:bg-[var(--surface-alt)]"
-                        >
-                          {bus.map(b => <option key={b} value={b}>● {b}</option>)}
-                        </select>
-                      </td>
-                      <td className={`${td} text-right`}>
-                        <HoursInput
-                          value={e.hours_forecast}
-                          onChange={v => updateEntry(e.id, "hours_forecast", v)}
-                          placeholder="0"
-                          className={`${inputCls} text-right tabular-nums`}
-                        />
-                      </td>
-                      <td className={`${td} text-right`}>
-                        <HoursInput
-                          value={e.hours_consolidated}
-                          onChange={v => updateEntry(e.id, "hours_consolidated", v)}
-                          placeholder="—"
-                          className={`${inputCls} text-right tabular-nums`}
-                        />
-                      </td>
-                      <td className={`${td} text-right`}>
-                        <DesvioCell
-                          forecast={e.hours_forecast}
-                          consolidated={e.hours_consolidated}
-                          onReplicate={() => updateEntry(e.id, "hours_consolidated", String(Number(e.hours_forecast) || 0))}
-                        />
-                      </td>
-                      <td className="pr-3 text-right">
-                        <button onClick={() => removeRow(e.id)} aria-label="Remover linha"
-                          className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] opacity-0 group-hover:opacity-100 hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-all text-[16px] leading-none">
-                          ×
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  {/* Linha de adicionar / limpar — dentro da tabela, próxima dos projetos */}
-                  <tr className="border-t border-[var(--border-subtle)]">
-                    <td colSpan={6} className="p-0">
-                      <div className="flex items-stretch">
-                        <button onClick={addRow}
-                          className="flex-1 px-4 py-3 text-left text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
-                          + Adicionar projeto
-                        </button>
-                        {entries.length > 1 && (
-                          <button onClick={clearEntries}
-                            title="Limpar todos os projetos"
-                            className="px-4 py-3 text-[13px] text-[var(--text-3)] hover:text-[var(--negative)] hover:bg-[var(--negative)]/5 transition-colors">
-                            Limpar
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  <tr className="border-t border-[var(--border-strong)] bg-[var(--surface-alt)]">
-                    <td className={td}>
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Total</span>
-                    </td>
-                    <td className={td}></td>
-                    <td className={`${td} text-right tabular-nums font-semibold ${totalForecast > 40 ? "text-[var(--negative)]" : "text-[var(--text-1)]"}`}>
-                      {totalForecast}h
-                    </td>
-                    <td className={`${td} text-right tabular-nums font-semibold text-[var(--text-1)]`}>
-                      {totalConsolidated > 0 ? `${totalConsolidated}h` : "—"}
-                    </td>
-                    <td className={`${td} text-right`}>
-                      {totalConsolidated > 0 && <Desvio forecast={totalForecast} consolidated={totalConsolidated} />}
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Ação primária — Salvar à direita, sozinha (hierarquia clara) */}
-            <div className="flex justify-end pt-2">
-              <button onClick={save}
-                disabled={saving || (totalForecast === 0 && totalConsolidated === 0) || !person}
-                className={btnBlue}>
-                {saving ? "Salvando…" : "→ Salvar semana"}
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* ══════════════════════════════════════════
-            PLANEJAMENTO  (jornada da gestora)
-        ══════════════════════════════════════════ */}
-        {view === "planning" && (
-          <>
-            {/* Cabeçalho: título "Planejamento" + nav semanal embaixo */}
             <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
               <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
-                Equipe
+                Horas
               </h1>
               <WeekNav
                 year={selectedYear} week={selectedWeek} start={start} end={end}
@@ -1699,16 +1333,27 @@ export default function AlocacoesApp() {
               />
             </header>
 
-            {/* Person groups */}
             <div className="space-y-4">
               {planGroups.map(g => {
-                const groupTotal = g.rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
-                const isOver = groupTotal > 40;
-                const isFull = groupTotal === 40;
+                const groupTotalF = g.rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
+                const groupTotalC = g.rows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
+                const statusBadge =
+                  groupTotalC > 40
+                    ? { label: `excedido · ${groupTotalC}h realizadas`, cls: "text-[var(--negative)] bg-[var(--negative)]/10" }
+                  : groupTotalF > 40
+                    ? { label: `excedido · ${groupTotalF}h previstas`,  cls: "text-[var(--negative)] bg-[var(--negative)]/10" }
+                  : !groupTotalF
+                    ? null
+                  : groupTotalC === 0
+                    ? { label: `pendente · 0/${groupTotalF}h`,           cls: "text-[var(--warning)] bg-[var(--warning)]/10" }
+                  : groupTotalC >= groupTotalF
+                    ? { label: `fechado · ${groupTotalC}h`,              cls: "text-[var(--positive)] bg-[var(--positive)]/10" }
+                  : { label: `parcial · ${groupTotalC}/${groupTotalF}h`, cls: "text-[var(--accent)] bg-[var(--accent)]/10" };
+                const canReplicate = g.rows.some(r => Number(r.hours_forecast) > 0);
                 return (
                   <div key={g.id} className={card}>
-                    {/* Person header — pessoa + cap pill + ✕ */}
-                    <div className="px-4 py-3 flex items-center gap-3 border-b border-[var(--border-subtle)]">
+                    {/* Person header */}
+                    <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--border-subtle)]">
                       <div className="flex-1 min-w-0 max-w-md">
                         <Combobox
                           value={g.person}
@@ -1718,13 +1363,18 @@ export default function AlocacoesApp() {
                           className={`${inputCls} font-semibold text-[15px]`}
                         />
                       </div>
-                      <div className={`text-[12.5px] font-semibold tabular-nums shrink-0 px-2.5 py-1 rounded-md ${
-                        isOver ? "text-[var(--negative)] bg-[var(--negative)]/10"
-                        : isFull ? "text-[var(--positive)] bg-[var(--positive)]/10"
-                        : "text-[var(--text-2)] bg-[var(--surface-alt)]"
-                      }`}>
-                        {groupTotal}/40h
-                      </div>
+                      {statusBadge && (
+                        <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 px-2 py-0.5 rounded-md ${statusBadge.cls}`}>
+                          {statusBadge.label}
+                        </span>
+                      )}
+                      {canReplicate && (
+                        <button onClick={() => replicateAllPlanRows(g.id)}
+                          title="Replicar todas as previstas → realizadas"
+                          className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors text-[15px] leading-none shrink-0">
+                          ↺
+                        </button>
+                      )}
                       {planGroups.length > 1 && (
                         <button onClick={() => removePlanGroup(g.id)}
                           className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-colors text-[16px] leading-none shrink-0">
@@ -1733,62 +1383,14 @@ export default function AlocacoesApp() {
                       )}
                     </div>
 
-                    {/* MOBILE: cards verticais por linha */}
+                    {/* MOBILE: cards verticais */}
                     <div className="sm:hidden p-3 space-y-2">
-                      {g.rows.map(r => (
-                        <div key={r.id} className="rounded-lg border border-[var(--border-subtle)] p-2.5 space-y-2">
-                          <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <Combobox
-                                value={r.project}
-                                onChange={v => updatePlanRow(g.id, r.id, "project", v)}
-                                options={projects}
-                                placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
-                                className={`${inputCls} font-medium`}
-                              />
-                            </div>
-                            <button onClick={() => removePlanRow(g.id, r.id)}
-                              className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[16px] leading-none shrink-0">
-                              ×
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <select value={r.businessUnit} onChange={ev => updatePlanRow(g.id, r.id, "businessUnit", ev.target.value)}
-                              className="flex-1 bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1">
-                              {bus.map(b => <option key={b} value={b}>● {b}</option>)}
-                            </select>
-                            <div className="w-24">
-                              <HoursInput
-                                value={r.hours_forecast}
-                                onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)}
-                                placeholder="0"
-                                className={`${inputCls} text-right tabular-nums`}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      <button onClick={() => addPlanRow(g.id)}
-                        className="w-full py-2 rounded-lg border border-dashed border-[var(--border-strong)] text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
-                        + Adicionar projeto
-                      </button>
-                    </div>
-
-                    {/* DESKTOP: tabela compacta */}
-                    <div className="hidden sm:block">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-[var(--border-subtle)]">
-                            <th className={th} style={{ minWidth: 200 }}>Projeto</th>
-                            <th className={th}>Centro de Custo</th>
-                            <th className={`${th} text-right`} style={{ width: 110 }}>Previstas</th>
-                            <th style={{ width: 36 }} />
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-subtle)]">
-                          {g.rows.map(r => (
-                            <tr key={r.id} className="group hover:bg-[var(--surface-alt)]/60 transition-colors">
-                              <td className={td}>
+                      {g.rows.map(r => {
+                        const desvio = (Number(r.hours_consolidated) || 0) - (Number(r.hours_forecast) || 0);
+                        return (
+                          <div key={r.id} className="rounded-lg border border-[var(--border-subtle)] p-2.5 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 min-w-0">
                                 <Combobox
                                   value={r.project}
                                   onChange={v => updatePlanRow(g.id, r.id, "project", v)}
@@ -1796,38 +1398,126 @@ export default function AlocacoesApp() {
                                   placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
                                   className={`${inputCls} font-medium`}
                                 />
-                              </td>
-                              <td className={td}>
-                                <select value={r.businessUnit} onChange={ev => updatePlanRow(g.id, r.id, "businessUnit", ev.target.value)}
-                                  className="bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1 px-1 rounded hover:bg-[var(--surface-alt)]">
-                                  {bus.map(b => <option key={b} value={b}>● {b}</option>)}
-                                </select>
-                              </td>
-                              <td className={`${td} text-right`}>
-                                <HoursInput
-                                  value={r.hours_forecast}
-                                  onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)}
-                                  placeholder="0"
-                                  className={`${inputCls} text-right tabular-nums`}
-                                />
-                              </td>
-                              <td className="pr-3 text-right">
-                                <button onClick={() => removePlanRow(g.id, r.id)}
-                                  className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] opacity-0 group-hover:opacity-100 hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-all text-[16px] leading-none">
-                                  ×
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                              </div>
+                              <button onClick={() => removePlanRow(g.id, r.id)}
+                                className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[16px] leading-none shrink-0">
+                                ×
+                              </button>
+                            </div>
+                            <select value={r.businessUnit} onChange={ev => updatePlanRow(g.id, r.id, "businessUnit", ev.target.value)}
+                              className="w-full bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1">
+                              {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                            </select>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <div className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1">Previstas</div>
+                                <HoursInput value={r.hours_forecast} onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)} placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wide">Realizadas</span>
+                                  {Number(r.hours_forecast) > 0 && (
+                                    <button onClick={() => replicatePlanRow(g.id, r.id)} title="Replicar previstas → realizadas"
+                                      className="text-[11px] text-[var(--text-3)] hover:text-[var(--accent)] leading-none">↺</button>
+                                  )}
+                                </div>
+                                <HoursInput value={r.hours_consolidated} onChange={v => updatePlanRow(g.id, r.id, "hours_consolidated", v)} placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1">Desvio</div>
+                                <div className={`${inputCls} text-right tabular-nums bg-transparent border-transparent ${desvio > 0 ? "text-[var(--positive)]" : desvio < 0 ? "text-[var(--negative)]" : "text-[var(--text-3)]"}`}>
+                                  {desvio > 0 ? `+${desvio}` : desvio || "—"}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <button onClick={() => addPlanRow(g.id)}
+                        className="w-full py-2 rounded-lg border border-dashed border-[var(--border-strong)] text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+                        + Adicionar projeto
+                      </button>
+                      {/* Totais mobile */}
+                      <div className="flex justify-end gap-4 px-1 pt-1 text-[13px] tabular-nums text-[var(--text-2)]">
+                        <span>Prev: <strong>{groupTotalF}h</strong></span>
+                        <span>Real: <strong className={groupTotalC > 0 ? "text-[var(--positive)]" : ""}>{groupTotalC > 0 ? `${groupTotalC}h` : "—"}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* DESKTOP: tabela */}
+                    <div className="hidden sm:block">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-[var(--border-subtle)]">
+                            <th className={th} style={{ minWidth: 200 }}>Projeto</th>
+                            <th className={th}>Centro de Custo</th>
+                            <th className={`${th} text-right`} style={{ width: 110 }}>Previstas</th>
+                            <th className={`${th} text-right`} style={{ width: 110 }}>Realizadas</th>
+                            <th className={`${th} text-right`} style={{ width: 80 }}>Desvio</th>
+                            <th style={{ width: 36 }} />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-subtle)]">
+                          {g.rows.map(r => {
+                            const desvio = (Number(r.hours_consolidated) || 0) - (Number(r.hours_forecast) || 0);
+                            return (
+                              <tr key={r.id} className="group hover:bg-[var(--surface-alt)]/60 transition-colors">
+                                <td className={td}>
+                                  <Combobox
+                                    value={r.project}
+                                    onChange={v => updatePlanRow(g.id, r.id, "project", v)}
+                                    options={projects}
+                                    placeholder={projects.length === 0 ? "Carregando…" : "Projeto…"}
+                                    className={`${inputCls} font-medium`}
+                                  />
+                                </td>
+                                <td className={td}>
+                                  <select value={r.businessUnit} onChange={ev => updatePlanRow(g.id, r.id, "businessUnit", ev.target.value)}
+                                    className="bg-transparent border-none text-[13.5px] text-[var(--text-2)] focus:outline-none focus:text-[var(--text-1)] cursor-pointer py-1 px-1 rounded hover:bg-[var(--surface-alt)]">
+                                    {bus.map(b => <option key={b} value={b}>● {b}</option>)}
+                                  </select>
+                                </td>
+                                <td className={`${td} text-right`}>
+                                  <HoursInput value={r.hours_forecast} onChange={v => updatePlanRow(g.id, r.id, "hours_forecast", v)} placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                                </td>
+                                <td className={`${td} text-right`}>
+                                  <HoursInput value={r.hours_consolidated} onChange={v => updatePlanRow(g.id, r.id, "hours_consolidated", v)} placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                                </td>
+                                <td className={`${td} text-right tabular-nums text-[13px] font-medium ${desvio > 0 ? "text-[var(--positive)]" : desvio < 0 ? "text-[var(--negative)]" : "text-[var(--text-3)]"}`}>
+                                  {desvio > 0 ? `+${desvio}` : desvio || "—"}
+                                </td>
+                                <td className="pr-3 text-right">
+                                  <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                                    {Number(r.hours_forecast) > 0 && (
+                                      <button onClick={() => replicatePlanRow(g.id, r.id)} title="Replicar previstas → realizadas"
+                                        className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors text-[15px] leading-none">
+                                        ↺
+                                      </button>
+                                    )}
+                                    <button onClick={() => removePlanRow(g.id, r.id)}
+                                      className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] transition-colors text-[16px] leading-none">
+                                      ×
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                         <tfoot>
-                          <tr className="border-t border-[var(--border-subtle)]">
-                            <td colSpan={4} className="p-0">
+                          <tr className="border-t border-[var(--border-subtle)] bg-[var(--surface-alt)]/40">
+                            <td colSpan={2} className="p-0">
                               <button onClick={() => addPlanRow(g.id)}
                                 className="w-full px-4 py-2.5 text-left text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
                                 + Adicionar projeto
                               </button>
                             </td>
+                            <td className="px-3 py-2 text-right text-[13px] font-semibold tabular-nums text-[var(--text-1)]">{groupTotalF}h</td>
+                            <td className={`px-3 py-2 text-right text-[13px] font-semibold tabular-nums ${groupTotalC > 0 ? "text-[var(--positive)]" : "text-[var(--text-3)]"}`}>{groupTotalC > 0 ? `${groupTotalC}h` : "—"}</td>
+                            <td className={`px-3 py-2 text-right text-[13px] font-semibold tabular-nums ${(groupTotalC - groupTotalF) > 0 ? "text-[var(--positive)]" : (groupTotalC - groupTotalF) < 0 ? "text-[var(--negative)]" : "text-[var(--text-3)]"}`}>
+                              {groupTotalC - groupTotalF !== 0 ? (groupTotalC - groupTotalF > 0 ? `+${groupTotalC - groupTotalF}` : groupTotalC - groupTotalF) : "—"}
+                            </td>
+                            <td />
                           </tr>
                         </tfoot>
                       </table>
@@ -1837,20 +1527,18 @@ export default function AlocacoesApp() {
               })}
             </div>
 
-            {/* Add person — bloco ghost no fim */}
             <button onClick={addPlanGroup}
               className="w-full py-3 rounded-lg border border-dashed border-[var(--border-strong)] text-[14px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
               + Adicionar pessoa
             </button>
 
-            {/* Ação primária + reset discreto */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <button onClick={() => { if (window.confirm("Limpar todo o planejamento?")) setPlanGroups([blankPlanGroup()]); }}
+              <button onClick={() => { if (window.confirm("Limpar todas as alocações?")) setPlanGroups([blankPlanGroup()]); }}
                 className="px-3 py-2 rounded-md text-[13px] text-[var(--text-3)] hover:text-[var(--negative)] transition-colors">
-                Limpar planejamento
+                Limpar
               </button>
-              <button onClick={savePlan} disabled={saving} className={btnBlue}>
-                {saving ? "Salvando…" : "→ Salvar planejamento"}
+              <button onClick={saveAlocacoes} disabled={saving} className={btnBlue}>
+                {saving ? "Salvando…" : "→ Salvar alocações"}
               </button>
             </div>
           </>
@@ -1892,7 +1580,11 @@ export default function AlocacoesApp() {
 
               {/* MOBILE: cards */}
               <div className="sm:hidden p-3 space-y-2">
-                {projetoRows.map(r => (
+                {projetoRows.map(r => {
+                  const _dbOthers = r.person ? (db||[]).filter(x => x.Person===r.person && x.Year===selectedYear && x.ISO_Week===selectedWeek && x.Project!==projetoProject).reduce((s,x) => s+(Number(x.Hours_Forecast)||0), 0) : 0;
+                  const _projF = _dbOthers + (Number(r.hours_forecast)||0);
+                  const _overF = r.person && _projF > 40;
+                  return (
                   <div key={r.id} className="rounded-lg border border-[var(--border-subtle)] p-2.5 space-y-2">
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
@@ -1920,6 +1612,7 @@ export default function AlocacoesApp() {
                         <label className="text-[11px] text-[var(--text-3)] uppercase tracking-wider">Previstas</label>
                         <HoursInput value={r.hours_forecast} onChange={v => updateProjetoRow(r.id, "hours_forecast", v)}
                           placeholder="0" className={`${inputCls} text-right tabular-nums mt-1`} />
+                        {_overF && <p className="text-[11px] text-[var(--negative)] mt-0.5 tabular-nums">⚠ total {_projF}h na semana</p>}
                       </div>
                       <div className="flex-1">
                         <label className="text-[11px] text-[var(--text-3)] uppercase tracking-wider">Realizadas</label>
@@ -1935,7 +1628,8 @@ export default function AlocacoesApp() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 {(() => {
                   const totalF = projetoRows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
                   const totalC = projetoRows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
@@ -1970,7 +1664,11 @@ export default function AlocacoesApp() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-subtle)]">
-                    {projetoRows.map(r => (
+                    {projetoRows.map(r => {
+                      const _dbOthers = r.person ? (db||[]).filter(x => x.Person===r.person && x.Year===selectedYear && x.ISO_Week===selectedWeek && x.Project!==projetoProject).reduce((s,x) => s+(Number(x.Hours_Forecast)||0), 0) : 0;
+                      const _projF = _dbOthers + (Number(r.hours_forecast)||0);
+                      const _overF = r.person && _projF > 40;
+                      return (
                       <tr key={r.id} className="group hover:bg-[var(--surface-alt)]/60 transition-colors">
                         <td className={td}>
                           <Combobox
@@ -1990,6 +1688,7 @@ export default function AlocacoesApp() {
                         <td className={`${td} text-right`}>
                           <HoursInput value={r.hours_forecast} onChange={v => updateProjetoRow(r.id, "hours_forecast", v)}
                             placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                          {_overF && <p className="text-[11px] text-[var(--negative)] mt-0.5 tabular-nums text-right">⚠ total {_projF}h</p>}
                         </td>
                         <td className={`${td} text-right`}>
                           <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
@@ -2009,7 +1708,8 @@ export default function AlocacoesApp() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-[var(--border-subtle)]">
@@ -2062,7 +1762,7 @@ export default function AlocacoesApp() {
               db={db}
               projectMeta={projectMeta}
               people={people}
-              person={person}
+              person=""
               onRefresh={refreshYear}
               onPersonCardClick={name => setPersonModal(name)}
               loadingHistory={loadingHistory}

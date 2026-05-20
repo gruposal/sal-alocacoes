@@ -414,6 +414,14 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db, panFilter, includeInternos, projectMeta]);
 
+  const panKpis = useMemo(() => {
+    const totalF = panoramaRows.reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
+    const totalC = panoramaRows.reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0);
+    const projetos = new Set(panoramaRows.filter(r => (Number(r.Hours_Forecast) || 0) > 0).map(r => r.Project)).size;
+    const pessoas  = new Set(panoramaRows.filter(r => (Number(r.Hours_Forecast) || 0) > 0).map(r => r.Person)).size;
+    return { totalF, totalC, projetos, pessoas };
+  }, [panoramaRows]);
+
   const realizadasPorProjeto = useMemo(() => {
     const map = new Map();
     for (const r of panoramaRows) {
@@ -830,6 +838,14 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                 )}
               </div>
             </div>
+          </div>
+
+          {/* KPIs do período */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard label="Total Previstas"  value={panKpis.totalF + 'h'}  color="text-[var(--accent)]"    accent="var(--accent)" />
+            <KpiCard label="Total Realizadas" value={panKpis.totalC > 0 ? panKpis.totalC + 'h' : '—'} color="text-[var(--positive)]" accent="var(--positive)" />
+            <KpiCard label="Projetos"         value={panKpis.projetos.toString()} color="text-[var(--warning)]"   accent="var(--warning)" />
+            <KpiCard label="Colaboradores"    value={panKpis.pessoas.toString()}  color="text-[var(--accent)]"    accent="var(--accent)" />
           </div>
 
           {/* Evolução semanal */}
