@@ -461,7 +461,6 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
 
   const TABS = [
     { k: "semana",    label: "Semana" },
-    { k: "semana2",   label: "Ocupação" },
     { k: "visao",     label: "Minha Visão" },
     { k: "panorama",  label: "Panorama" },
     { k: "registros", label: "Registros" },
@@ -507,26 +506,47 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
         </div>
       )}
 
-      {/* ══ OCUPAÇÃO ════════════════════════════════════════════════════════════ */}
-      {hasData && activeTab === "semana2" && (
+      {/* ══ SEMANA ══════════════════════════════════════════════════════════════ */}
+      {hasData && activeTab === "semana" && (
         <div className="space-y-5">
-          {/* KPI principal */}
+          {/* KPIs da semana */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard
-              label={`Com 40h — W${String(selectedWeek).padStart(2,'0')}`}
-              value={`${totalCom40h} / ${ocupacaoPorPessoa.length}`}
-              color={totalCom40h === ocupacaoPorPessoa.length ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}
-              accent={totalCom40h === ocupacaoPorPessoa.length ? 'var(--positive)' : 'var(--warning)'}
-            />
-            <KpiCard label="Parcialmente alocados" value={ocupacaoPorPessoa.filter(p => p.forecast > 0 && p.forecast < 40).length.toString()} color="text-[var(--accent)]" accent="var(--accent)" />
-            <KpiCard label="Sem alocação" value={ocupacaoPorPessoa.filter(p => p.forecast === 0).length.toString()} color="text-[var(--negative)]" accent="var(--negative)" />
-            <KpiCard label="Realizadas pendentes" value={alertPendentes.length.toString()} color={alertPendentes.length > 0 ? 'text-[var(--warning)]' : 'text-[var(--positive)]'} accent={alertPendentes.length > 0 ? 'var(--warning)' : 'var(--positive)'} />
+            <KpiCard label={`Previstas — W${String(selectedWeek).padStart(2,'0')}`} value={semKpis.totalF + 'h'} color="text-[var(--accent)]" accent="var(--accent)" />
+            <KpiCard label="Realizadas" value={semKpis.totalC > 0 ? semKpis.totalC + 'h' : '—'} color="text-[var(--positive)]" accent="var(--positive)" />
+            <KpiCard label="Projetos ativos" value={semKpis.projetos.toString()} color="text-[var(--warning)]" accent="var(--warning)" />
+            <KpiCard label="Colaboradores" value={semKpis.pessoas.toString()} color="text-[var(--accent)]" accent="var(--accent)" />
           </div>
 
-          {/* Grade de ocupação */}
+          {/* Horas previstas por projeto */}
+          {semPorProjeto.length > 0 && (
+            <VerticalBars
+              title={`Horas Previstas por Projeto — W${String(selectedWeek).padStart(2,'0')}`}
+              badge="previsto"
+              data={semPorProjeto}
+            />
+          )}
+
+          {/* Alertas operacionais */}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <AlertCard
+              title={`Sem alocação — W${String(selectedWeek).padStart(2,'0')}`}
+              items={alertSemAlocacao}
+              emptyMsg="Todos estão alocados esta semana."
+            />
+            <AlertCard
+              title={`Realizadas pendentes — W${String(prevWeekNum).padStart(2,'0')}`}
+              items={alertPendentes}
+              emptyMsg="Todas as realizadas da semana anterior foram preenchidas."
+            />
+          </div>
+
+          {/* Grade de ocupação por colaborador */}
           <div className={card}>
-            <div className="px-5 py-4 border-b border-[var(--border-subtle)]">
+            <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
               <h3 className="font-semibold text-[15px]">Ocupação por Colaborador — W{String(selectedWeek).padStart(2,'0')}</h3>
+              <span className="text-[13px] text-[var(--text-3)] tabular-nums">
+                {totalCom40h} / {ocupacaoPorPessoa.length} com 40h
+              </span>
             </div>
             <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {ocupacaoPorPessoa.map(p => {
@@ -538,10 +558,8 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                 const barColor = over ? 'var(--negative)' : full ? 'var(--positive)' : partial ? 'var(--accent)' : 'var(--border-strong)';
                 const badgeColor = over
                   ? 'bg-[var(--negative)]/10 text-[var(--negative)]'
-                  : full
-                  ? 'bg-[var(--positive)]/10 text-[var(--positive)]'
-                  : partial
-                  ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : full ? 'bg-[var(--positive)]/10 text-[var(--positive)]'
+                  : partial ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
                   : 'bg-[var(--surface-alt)] text-[var(--text-3)]';
                 const hasReal = p.consolidated > 0;
                 return (
@@ -552,12 +570,10 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                         {empty ? '0h' : `${p.forecast}h`}
                       </span>
                     </div>
-                    {/* Barra previstas */}
                     <div className="h-2 rounded-full bg-[var(--surface-alt)] overflow-hidden">
                       <div className="h-full rounded-full transition-all"
                         style={{ width: `${pct}%`, backgroundColor: barColor }} />
                     </div>
-                    {/* Realizadas (se houver) */}
                     {hasReal && (
                       <div className="flex items-center justify-between text-[11.5px] text-[var(--text-3)]">
                         <span>Realizadas</span>
@@ -574,43 +590,6 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
               })}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ══ SEMANA ══════════════════════════════════════════════════════════════ */}
-      {hasData && activeTab === "semana" && (
-        <div className="space-y-5">
-          {/* KPIs da semana selecionada */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard label={`Previstas — W${String(selectedWeek).padStart(2,'0')}`}  value={semKpis.totalF + 'h'}  color="text-[var(--accent)]"    accent="var(--accent)" />
-            <KpiCard label="Realizadas"     value={semKpis.totalC > 0 ? semKpis.totalC + 'h' : '—'} color="text-[var(--positive)]"  accent="var(--positive)" />
-            <KpiCard label="Projetos ativos" value={semKpis.projetos.toString()} color="text-[var(--warning)]"  accent="var(--warning)" />
-            <KpiCard label="Colaboradores"  value={semKpis.pessoas.toString()}  color="text-[var(--accent)]"    accent="var(--accent)" />
-          </div>
-
-          {/* Alertas operacionais */}
-          <div className="grid sm:grid-cols-2 gap-3">
-            <AlertCard
-              title={`Sem alocação — W${String(selectedWeek).padStart(2,'0')}`}
-              items={alertSemAlocacao}
-              emptyMsg="Todos estão alocados esta semana."
-            />
-            <AlertCard
-              title={`Realizadas pendentes — W${String(prevWeekNum).padStart(2,'0')}`}
-              items={alertPendentes}
-              emptyMsg="Todas as realizadas da semana anterior foram preenchidas."
-            />
-          </div>
-
-          {/* Horas previstas por projeto */}
-          {semPorProjeto.length > 0 && (
-            <VerticalBars
-              title={`Horas Previstas por Projeto — W${String(selectedWeek).padStart(2,'0')}`}
-              badge="previsto"
-              data={semPorProjeto}
-            />
-          )}
-
         </div>
       )}
 
