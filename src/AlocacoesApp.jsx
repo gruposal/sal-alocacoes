@@ -703,7 +703,7 @@ export default function AlocacoesApp() {
   const [editingValues, setEditingValues]   = useState(null);
   const [confirmDlg, setConfirmDlg]         = useState({ open: false, title: '', message: '', onConfirm: null });
   const [personModal, setPersonModal]       = useState(null); // null | nome da pessoa
-  const [recFilter, setRecFilter]           = useState({ person: "", project: "", cc: "" });
+  const [recFilter, setRecFilter]           = useState({ person: "", project: "", cc: "", weekFrom: "", weekTo: "" });
   const [view, setView]                     = useState(() => {
     const v = persisted.view;
     // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
@@ -1297,14 +1297,16 @@ export default function AlocacoesApp() {
     finally { setSaving(false); }
   }
 
-  const isRecFilterActive = !!(dbFilter || recFilter.person || recFilter.project || recFilter.cc);
+  const isRecFilterActive = !!(dbFilter || recFilter.person || recFilter.project || recFilter.cc || recFilter.weekFrom || recFilter.weekTo);
 
   // Registros filtrados pelos filtros estruturados + texto (com normalização de acentos)
   const recFiltered = useMemo(() => {
     let rows = db || [];
-    if (recFilter.person)  rows = rows.filter(r => r.Person === recFilter.person);
-    if (recFilter.project) rows = rows.filter(r => r.Project === recFilter.project);
-    if (recFilter.cc)      rows = rows.filter(r => r.Business_Unit === recFilter.cc);
+    if (recFilter.person)   rows = rows.filter(r => r.Person === recFilter.person);
+    if (recFilter.project)  rows = rows.filter(r => r.Project === recFilter.project);
+    if (recFilter.cc)       rows = rows.filter(r => r.Business_Unit === recFilter.cc);
+    if (recFilter.weekFrom) rows = rows.filter(r => r.ISO_Week >= Number(recFilter.weekFrom));
+    if (recFilter.weekTo)   rows = rows.filter(r => r.ISO_Week <= Number(recFilter.weekTo));
     if (dbFilter) {
       const q = normalizeMatch(dbFilter);
       rows = rows.filter(r =>
@@ -2070,7 +2072,7 @@ export default function AlocacoesApp() {
                 const visibleRows = pagedDb;
                 const totalF = visibleRows.reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
                 const totalC = visibleRows.reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0);
-                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); };
+                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "", weekFrom: "", weekTo: "" }); setDbFilter(""); setPreviewWeek(null); };
                 const recordsJsx = (
                 <div>
                   {/* Filtros estruturados */}
@@ -2098,17 +2100,33 @@ export default function AlocacoesApp() {
                         </select>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
-                        placeholder="Busca livre…" className={`${inputCls} max-w-xs`} />
-                      {isRecFilterActive && (
-                        <button onClick={clearAll} className="text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">↺ Limpar</button>
-                      )}
-                      <span className="ml-auto text-[13px] text-[var(--text-3)] tabular-nums">
-                        {isRecFilterActive
-                          ? `${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''} encontrado${visibleRows.length !== 1 ? 's' : ''}`
-                          : `W${String(activeWeek ?? '').padStart(2,'0')} · ${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''}`}
-                      </span>
+                    <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end border-t border-[var(--border-subtle)] pt-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Semana de</label>
+                        <select value={recFilter.weekFrom} onChange={e => setRecFilter(f => ({ ...f, weekFrom: e.target.value }))} className={inputCls}>
+                          <option value="">Início</option>
+                          {previewWeeks.map(w => <option key={w} value={String(w)}>W{String(w).padStart(2,'0')}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Até</label>
+                        <select value={recFilter.weekTo} onChange={e => setRecFilter(f => ({ ...f, weekTo: e.target.value }))} className={inputCls}>
+                          <option value="">Fim</option>
+                          {previewWeeks.map(w => <option key={w} value={String(w)}>W{String(w).padStart(2,'0')}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex items-end gap-3 pb-0.5">
+                        <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
+                          placeholder="Busca livre…" className={`${inputCls} min-w-0`} />
+                        {isRecFilterActive && (
+                          <button onClick={clearAll} className="text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">↺ Limpar</button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-[13px] text-[var(--text-3)] tabular-nums pt-1">
+                      {isRecFilterActive
+                        ? `${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''} encontrado${visibleRows.length !== 1 ? 's' : ''}`
+                        : `W${String(activeWeek ?? '').padStart(2,'0')} · ${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''}`}
                     </div>
                   </div>
                   <div className="overflow-x-auto">
