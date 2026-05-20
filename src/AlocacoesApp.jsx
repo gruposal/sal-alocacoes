@@ -704,6 +704,7 @@ export default function AlocacoesApp() {
   const [confirmDlg, setConfirmDlg]         = useState({ open: false, title: '', message: '', onConfirm: null });
   const [personModal, setPersonModal]       = useState(null); // null | nome da pessoa
   const [recFilter, setRecFilter]           = useState({ person: "", project: "", cc: "" });
+  const [recOnlyPending, setRecOnlyPending] = useState(false);
   const [view, setView]                     = useState(() => {
     const v = persisted.view;
     // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
@@ -2067,10 +2068,10 @@ export default function AlocacoesApp() {
               selectedWeek={selectedWeek}
               selectedYear={selectedYear}
               recordsContent={(() => {
-                const visibleRows = pagedDb;
+                const visibleRows = recOnlyPending ? pagedDb.filter(r => r.Hours_Consolidated == null) : pagedDb;
                 const totalF = visibleRows.reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
                 const totalC = visibleRows.reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0);
-                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); };
+                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); setRecOnlyPending(false); };
                 const recordsJsx = (
                 <div>
                   {/* Nav de semana — sempre no topo */}
@@ -2114,10 +2115,14 @@ export default function AlocacoesApp() {
                         </select>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
                         placeholder="Busca livre…" className={`${inputCls} max-w-xs`} />
-                      {isRecFilterActive && (
+                      <label className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-2)] cursor-pointer select-none whitespace-nowrap">
+                        <input type="checkbox" checked={recOnlyPending} onChange={e => setRecOnlyPending(e.target.checked)} className="accent-[var(--accent)]" />
+                        sem realizado
+                      </label>
+                      {(isRecFilterActive || recOnlyPending) && (
                         <button onClick={clearAll} className="text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">↺ Limpar</button>
                       )}
                     </div>
