@@ -42,9 +42,12 @@ function extractProjectMeta(task) {
   }
   const categoria = dropdownName(PROJ_FIELD_IDS.categoria);
   const formato   = dropdownName(PROJ_FIELD_IDS.formato);
+  const rawStatus = task.status;
+  const statusStr = typeof rawStatus === 'string' ? rawStatus : rawStatus?.status;
   return {
     id: task.id,
     name: (task.name || '').trim(),
+    status: statusStr?.toLowerCase() ?? null,
     cliente:      textValue(PROJ_FIELD_IDS.cliente),
     centroCusto:  dropdownName(PROJ_FIELD_IDS.centro_custo),
     categoria,
