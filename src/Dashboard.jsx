@@ -277,7 +277,7 @@ function groupBy(rows, key) {
 const selectCls = "w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors";
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear, recordsContent }) {
+export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear, recordsContent, onRefresh, loadingHistory }) {
   const [activeTab, setActiveTab] = useState("semana");
 
   // ── Aba Semana ───────────────────────────────────────────────────────────────
@@ -471,7 +471,7 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
     <div className="space-y-5">
 
       {/* Sub-tab navigation */}
-      <div className="flex gap-1 border-b border-[var(--border-subtle)] pb-0">
+      <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] pb-0">
         {TABS.map(t => (
           <button key={t.k} onClick={() => setActiveTab(t.k)}
             className={`px-4 py-2 text-[13.5px] font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
@@ -482,6 +482,12 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
             {t.label}
           </button>
         ))}
+        {onRefresh && (
+          <button onClick={onRefresh} disabled={loadingHistory}
+            className="ml-auto text-[12.5px] text-[var(--text-2)] hover:text-[var(--accent)] disabled:opacity-40 transition-colors px-2 pb-2">
+            {loadingHistory ? "Atualizando…" : "↻ Atualizar"}
+          </button>
+        )}
       </div>
 
       {/* ══ REGISTROS ═══════════════════════════════════════════════════════════ */}

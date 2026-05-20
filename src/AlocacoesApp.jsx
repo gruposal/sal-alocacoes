@@ -267,18 +267,18 @@ function WeekNav({ year, week, start, end, onPrev, onNext, onToday }) {
   const isCurrent = getISOWeek(t) === week && t.getFullYear() === year;
   return (
     <div className="inline-flex items-center gap-2">
-      <div className="inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-[var(--surface-alt)] border border-[var(--border-subtle)]">
+      <div className="inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-[var(--surface-alt)] border border-[var(--border-subtle)]" style={{ width: 360 }}>
         <button onClick={onPrev} aria-label="Semana anterior"
-          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
+          className="w-8 h-8 shrink-0 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
           ‹
         </button>
-        <span className="px-3 tabular-nums whitespace-nowrap text-[15px]">
+        <span className="flex-1 text-center tabular-nums whitespace-nowrap text-[15px]">
           <span className="font-semibold text-[var(--text-1)]">Semana {toTwo(week)}</span>
           <span className="text-[var(--text-3)] mx-1.5">·</span>
           <span className="text-[var(--text-2)]">{formatWeekRangePt(start, end)}</span>
         </span>
         <button onClick={onNext} aria-label="Próxima semana"
-          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
+          className="w-8 h-8 shrink-0 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
           ›
         </button>
       </div>
@@ -1058,6 +1058,18 @@ export default function AlocacoesApp() {
     finally { setLoadingWeek(false); }
   }
 
+  async function refreshYear() {
+    try {
+      setLoadingHistory(true);
+      const rows = await loadLastYear(selectedYear);
+      mergeRowsIntoCcMap(rows);
+      setDb(rows);
+      setDbScope(`year-${selectedYear}`);
+      showToast("Painel atualizado.");
+    } catch (e) { console.warn(e); showToast("Erro ao atualizar painel."); }
+    finally { setLoadingHistory(false); }
+  }
+
   async function deleteDbRow(row) {
     try { await cuDeleteRow(row); setDb(p => p.filter(r => r.ID !== row.ID)); showToast("Removido."); }
     catch (e) { console.warn(e); showToast("Erro ao remover."); }
@@ -1622,10 +1634,17 @@ export default function AlocacoesApp() {
               <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
                 Projeto
               </h1>
-              <WeekNav
-                year={selectedYear} week={selectedWeek} start={start} end={end}
-                onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
-              />
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <WeekNav
+                  year={selectedYear} week={selectedWeek} start={start} end={end}
+                  onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
+                />
+                <button onClick={() => projetoProject && loadProjetoRows(projetoProject, selectedYear, selectedWeek)}
+                  disabled={!projetoProject || loadingWeek}
+                  className="text-[12.5px] text-[var(--text-2)] hover:text-[var(--accent)] disabled:opacity-40 transition-colors">
+                  {loadingWeek ? "Atualizando…" : "↻ Atualizar"}
+                </button>
+              </div>
             </header>
 
             <div className={card}>
@@ -1812,6 +1831,8 @@ export default function AlocacoesApp() {
               projectMeta={projectMeta}
               people={people}
               person={person}
+              onRefresh={refreshYear}
+              loadingHistory={loadingHistory}
               selectedWeek={selectedWeek}
               selectedYear={selectedYear}
               recordsContent={(() => {

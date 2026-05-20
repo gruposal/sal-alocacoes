@@ -240,8 +240,8 @@ export async function upsertConsolidated(rows) {
 
 export async function deleteRow(row) {
   const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
-  const cachedId = taskIdCache.get(name);
-  if (!cachedId) return;
-  await cuFetch(`/task/${cachedId}`, { method: 'DELETE' });
+  const taskId = taskIdCache.get(name) || row._taskId;
+  if (!taskId) return;
+  await cuFetch(`/task/${taskId}`, { method: 'DELETE' });
   taskIdCache.delete(name);
 }
