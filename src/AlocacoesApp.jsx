@@ -1734,6 +1734,7 @@ export default function AlocacoesApp() {
                       <th className={th}>Centro de Custo</th>
                       <th className={`${th} text-right`} style={{ width: 110 }}>Previstas</th>
                       <th className={`${th} text-right`} style={{ width: 110 }}>Realizadas</th>
+                      <th className={`${th} text-right`} style={{ width: 100 }}>Desvio</th>
                       <th style={{ width: 36 }} />
                     </tr>
                   </thead>
@@ -1760,15 +1761,15 @@ export default function AlocacoesApp() {
                             placeholder="0" className={`${inputCls} text-right tabular-nums`} />
                         </td>
                         <td className={`${td} text-right`}>
-                          <div className="flex items-center justify-end gap-2">
-                            <DesvioCell
-                              forecast={r.hours_forecast}
-                              consolidated={r.hours_consolidated}
-                              onReplicate={() => updateProjetoRow(r.id, "hours_consolidated", String(Number(r.hours_forecast) || 0))}
-                            />
-                            <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
-                              placeholder="0" className={`${inputCls} text-right tabular-nums w-20`} />
-                          </div>
+                          <HoursInput value={r.hours_consolidated} onChange={v => updateProjetoRow(r.id, "hours_consolidated", v)}
+                            placeholder="0" className={`${inputCls} text-right tabular-nums`} />
+                        </td>
+                        <td className={`${td} text-right`}>
+                          <DesvioCell
+                            forecast={r.hours_forecast}
+                            consolidated={r.hours_consolidated}
+                            onReplicate={() => updateProjetoRow(r.id, "hours_consolidated", String(Number(r.hours_forecast) || 0))}
+                          />
                         </td>
                         <td className="pr-3 text-right">
                           <button onClick={() => setProjetoRows(p => p.filter(x => x.id !== r.id))}
@@ -1781,7 +1782,7 @@ export default function AlocacoesApp() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-[var(--border-subtle)]">
-                      <td colSpan={5} className="p-0">
+                      <td colSpan={6} className="p-0">
                         <button onClick={() => setProjetoRows(p => [...p, blankProjetoRow()])}
                           className="w-full px-4 py-2.5 text-left text-[13.5px] font-medium text-[var(--text-2)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
                           + Adicionar pessoa
@@ -1803,7 +1804,7 @@ export default function AlocacoesApp() {
                           <td className={`${td} text-right tabular-nums font-semibold text-[var(--text-1)]`}>
                             {totalC > 0 ? `${totalC}h` : "—"}
                           </td>
-                          <td />
+                          <td colSpan={2} />
                         </tr>
                       );
                     })()}
