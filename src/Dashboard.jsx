@@ -782,22 +782,30 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
       {hasData && activeTab === "panorama" && (
         <div className="space-y-5">
           {/* Filtros */}
-          <div className={`${card} p-4`}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 items-end">
-              <div>
+          <div className={`${card} p-4 space-y-3`}>
+            {/* Linha 1: Pessoa + CC + internos */}
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[160px]">
                 <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Pessoa</label>
                 <select value={panFilter.person} onChange={e => setPanFilter(f => ({ ...f, person: e.target.value }))} className={selectCls}>
-                  <option value="">Todos</option>
+                  <option value="">Todas</option>
                   {allPanPeople.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
-              <div>
+              <div className="flex-1 min-w-[160px]">
                 <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Centro de Custo</label>
                 <select value={panFilter.cc} onChange={e => setPanFilter(f => ({ ...f, cc: e.target.value }))} className={selectCls}>
                   <option value="">Todos</option>
                   {allCcs.map(cc => <option key={cc} value={cc}>{cc}</option>)}
                 </select>
               </div>
+              <label className="text-[12px] text-[var(--text-3)] inline-flex items-center gap-1.5 cursor-pointer select-none whitespace-nowrap pb-2">
+                <input type="checkbox" checked={includeInternos} onChange={e => setIncludeInternos(e.target.checked)} className="accent-[var(--accent)]" />
+                internos
+              </label>
+            </div>
+            {/* Linha 2: Período + Limpar */}
+            <div className="flex flex-wrap items-end gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Semana de</label>
                 <select value={panFilter.weekFrom} onChange={e => setPanFilter(f => ({ ...f, weekFrom: e.target.value }))} className={selectCls}>
@@ -812,11 +820,8 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                   {allWeeks.map(w => <option key={w} value={String(w)}>W{String(w).padStart(2,'0')}</option>)}
                 </select>
               </div>
-              <div className="flex items-end gap-3">
-                <label className="text-[12px] text-[var(--text-3)] inline-flex items-center gap-1.5 cursor-pointer select-none whitespace-nowrap pb-2">
-                  <input type="checkbox" checked={includeInternos} onChange={e => setIncludeInternos(e.target.checked)} className="accent-[var(--accent)]" />
-                  internos
-                </label>
+              <div className="flex items-end gap-3 ml-auto">
+                <span className="text-[12px] text-[var(--text-3)] pb-2 tabular-nums">{panoramaRows.length} registros</span>
                 {(panFilter.person || panFilter.cc || panFilter.weekFrom || panFilter.weekTo) && (
                   <button onClick={() => setPanFilter({ person: "", project: "", cc: "", weekFrom: "", weekTo: "" })}
                     className="pb-2 text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">
@@ -825,7 +830,6 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                 )}
               </div>
             </div>
-            <div className="mt-2 text-[12px] text-[var(--text-3)]">{panoramaRows.length} registros</div>
           </div>
 
           {/* Evolução semanal */}
