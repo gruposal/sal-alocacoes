@@ -705,6 +705,7 @@ export default function AlocacoesApp() {
   const [personModal, setPersonModal]       = useState(null); // null | nome da pessoa
   const [recFilter, setRecFilter]           = useState({ person: "", project: "", cc: "" });
   const [recOnlyPending, setRecOnlyPending] = useState(false);
+  const [recSelected, setRecSelected]       = useState(new Set());
   const [view, setView]                     = useState(() => {
     const v = persisted.view;
     // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
@@ -2071,18 +2072,44 @@ export default function AlocacoesApp() {
                 const visibleRows = recOnlyPending ? pagedDb.filter(r => r.Hours_Consolidated == null) : pagedDb;
                 const totalF = visibleRows.reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
                 const totalC = visibleRows.reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0);
-                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); setRecOnlyPending(false); };
+                const eligibleRows = visibleRows.filter(r => Number(r.Hours_Forecast) > 0 && r.Hours_Consolidated == null);
+                const allEligibleSelected = eligibleRows.length > 0 && eligibleRows.every(r => recSelected.has(r.ID));
+                const toggleAll = () => {
+                  if (allEligibleSelected) {
+                    setRecSelected(new Set());
+                  } else {
+                    setRecSelected(new Set(eligibleRows.map(r => r.ID)));
+                  }
+                };
+                const toggleRow = id => setRecSelected(prev => {
+                  const next = new Set(prev);
+                  next.has(id) ? next.delete(id) : next.add(id);
+                  return next;
+                });
+                const handleBulkReplicate = async () => {
+                  const toUpdate = visibleRows.filter(r =>
+                    recSelected.has(r.ID) && Number(r.Hours_Forecast) > 0 && r.Hours_Consolidated == null
+                  ).map(r => ({ ...r, Hours_Consolidated: Number(r.Hours_Forecast) }));
+                  if (!toUpdate.length) return;
+                  try {
+                    await upsertConsolidated(toUpdate);
+                    setDb(prev => prev.map(r => { const u = toUpdate.find(x => x.ID === r.ID); return u ? u : r; }));
+                    showToast(`${toUpdate.length} realizado${toUpdate.length !== 1 ? 's' : ''} replicado${toUpdate.length !== 1 ? 's' : ''}.`);
+                    setRecSelected(new Set());
+                  } catch { showToast("Erro ao replicar."); }
+                };
+                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); setRecOnlyPending(false); setRecSelected(new Set()); };
                 const recordsJsx = (
                 <div>
                   {/* Nav de semana — sempre no topo */}
                   {previewWeeks.length > 0 && (
                     <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-2">
-                      <button onClick={() => setPreviewWeek(previewWeeks[weekIdx + 1])} disabled={weekIdx >= previewWeeks.length - 1} className={`${btnGhost} py-1.5 px-3`}>←</button>
-                      <select value={activeWeek ?? ''} onChange={e => { setPreviewWeek(Number(e.target.value)); clearAll(); }}
+                      <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx + 1]); setRecSelected(new Set()); }} disabled={weekIdx >= previewWeeks.length - 1} className={`${btnGhost} py-1.5 px-3`}>←</button>
+                      <select value={activeWeek ?? ''} onChange={e => { setPreviewWeek(Number(e.target.value)); setRecSelected(new Set()); }}
                         className="text-[14px] font-semibold rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none">
                         {previewWeeks.map(w => <option key={w} value={w}>W{String(w).padStart(2,'0')}</option>)}
                       </select>
-                      <button onClick={() => setPreviewWeek(previewWeeks[weekIdx - 1])} disabled={weekIdx <= 0} className={`${btnGhost} py-1.5 px-3`}>→</button>
+                      <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx - 1]); setRecSelected(new Set()); }} disabled={weekIdx <= 0} className={`${btnGhost} py-1.5 px-3`}>→</button>
                       <span className="ml-auto text-[13px] text-[var(--text-3)] tabular-nums">
                         {isRecFilterActive
                           ? `${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''} encontrado${visibleRows.length !== 1 ? 's' : ''}`
@@ -2128,9 +2155,17 @@ export default function AlocacoesApp() {
                     </div>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[600px]">
+                    <table className="w-full min-w-[640px]">
                       <thead>
                         <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]">
+                          <th className="px-3 py-2 w-8">
+                            <input type="checkbox"
+                              checked={allEligibleSelected}
+                              disabled={eligibleRows.length === 0}
+                              onChange={toggleAll}
+                              className="accent-[var(--accent)] cursor-pointer disabled:opacity-30"
+                              title="Selecionar todos sem realizado" />
+                          </th>
                           {[{k:"ISO_Week",label:"Sem."},{k:"Person",label:"Pessoa"},{k:"Project",label:"Projeto"},{k:"Business_Unit",label:"CC"},{k:"Hours_Forecast",label:"Prev."},{k:"Hours_Consolidated",label:"Real."},{k:"_desvio",label:"Desvio"}].map(col => (
                             <th key={col.k} className={th}>
                               {col.k === "_desvio" ? col.label : (
@@ -2145,9 +2180,18 @@ export default function AlocacoesApp() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border-subtle)]">
-                        {visibleRows.map(r => (
-                          <tr key={r.ID} className="group hover:bg-[var(--surface-alt)] transition-colors">
+                        {visibleRows.map(r => {
+                          const eligible = Number(r.Hours_Forecast) > 0 && r.Hours_Consolidated == null;
+                          return (
+                          <tr key={r.ID} className={`group hover:bg-[var(--surface-alt)] transition-colors ${recSelected.has(r.ID) ? 'bg-[var(--accent-soft)]' : ''}`}>
                             <>
+                              <td className="px-3 py-2 w-8">
+                                <input type="checkbox"
+                                  checked={recSelected.has(r.ID)}
+                                  disabled={!eligible}
+                                  onChange={() => toggleRow(r.ID)}
+                                  className="accent-[var(--accent)] cursor-pointer disabled:opacity-20" />
+                              </td>
                               <td className={`${td} tabular-nums text-[var(--text-3)] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
                               <td className={`${td} font-medium`}>{r.Person}</td>
                               <td className={td}>{r.Project}</td>
@@ -2156,7 +2200,7 @@ export default function AlocacoesApp() {
                               <td className={`${td} text-center tabular-nums`}>{r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}</td>
                               <td className={`${td} text-center`}>{r.Hours_Consolidated != null ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} /> : <span className="text-[var(--text-3)]">—</span>}</td>
                               <td className={td}><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {(Number(r.Hours_Forecast) > 0 && r.Hours_Consolidated == null) && (
+                                {eligible && (
                                   <button
                                     title={`Replicar ${r.Hours_Forecast}h previsto para realizado`}
                                     onClick={async () => {
@@ -2174,13 +2218,14 @@ export default function AlocacoesApp() {
                               </div></td>
                             </>
                           </tr>
-                        ))}
-                        {!visibleRows.length && <tr><td colSpan={8} className="py-12 text-center text-[15px] text-[var(--text-3)]">{db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}</td></tr>}
+                          );
+                        })}
+                        {!visibleRows.length && <tr><td colSpan={9} className="py-12 text-center text-[15px] text-[var(--text-3)]">{db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}</td></tr>}
                       </tbody>
                       {visibleRows.length > 0 && (
                         <tfoot>
                           <tr className="border-t-2 border-[var(--border-subtle)] bg-[var(--surface-alt)]/50">
-                            <td colSpan={4} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]">
+                            <td colSpan={5} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]">
                               Total · {visibleRows.length} registro{visibleRows.length !== 1 ? 's' : ''}
                             </td>
                             <td className="px-3 py-2 text-center tabular-nums font-semibold text-[var(--text-1)]">{totalF > 0 ? `${totalF}h` : '—'}</td>
@@ -2191,6 +2236,19 @@ export default function AlocacoesApp() {
                       )}
                     </table>
                   </div>
+                  {/* Barra de ação flutuante */}
+                  {recSelected.size > 0 && createPortal(
+                    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[10001] flex items-center gap-3 bg-[var(--text-1)] text-[var(--canvas)] px-5 py-3 rounded-xl shadow-2xl">
+                      <span className="text-[14px] font-medium">{recSelected.size} selecionado{recSelected.size !== 1 ? 's' : ''}</span>
+                      <button onClick={handleBulkReplicate}
+                        className="px-4 py-1.5 rounded-lg bg-[var(--accent)] text-white text-[13.5px] font-semibold hover:opacity-90 transition-opacity">
+                        ↺ Replicar realizadas
+                      </button>
+                      <button onClick={() => setRecSelected(new Set())}
+                        className="opacity-60 hover:opacity-100 text-[20px] leading-none transition-opacity">×</button>
+                    </div>,
+                    document.body
+                  )}
                 </div>
               ); return recordsJsx; })()}
             />
