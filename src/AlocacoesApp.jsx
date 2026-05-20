@@ -135,6 +135,11 @@ function Combobox({ value, onChange, options, placeholder, className }) {
     setOpen(true);
   }
 
+  function handleFocus() {
+    setQuery(""); // limpa pra mostrar lista completa ao abrir
+    openDropdown();
+  }
+
   function select(opt) { setQuery(opt); onChange(opt); setOpen(false); }
 
   function handleKeyDown(e) {
@@ -191,7 +196,7 @@ function Combobox({ value, onChange, options, placeholder, className }) {
         ref={inputRef}
         value={query}
         onChange={e => { setQuery(e.target.value); openDropdown(); }}
-        onFocus={openDropdown}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
