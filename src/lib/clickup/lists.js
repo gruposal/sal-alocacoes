@@ -1,12 +1,14 @@
 import { cuFetch } from './client.js';
 import { LIST_PEOPLE, LIST_PROJECTS } from './fields.js';
 
-async function loadList(listId) {
+async function loadList(listId, filter = null) {
   const rows = [];
   let page = 0;
   while (true) {
     const data = await cuFetch(`/list/${listId}/task?page=${page}&limit=100&include_closed=true`);
-    rows.push(...(data.tasks || []).map(t => ({ id: t.id, name: t.name })));
+    let tasks = data.tasks || [];
+    if (filter) tasks = tasks.filter(filter);
+    rows.push(...tasks.map(t => ({ id: t.id, name: t.name })));
     if (data.last_page || (data.tasks || []).length === 0) break;
     page++;
   }
@@ -91,7 +93,7 @@ export const people = {
 };
 
 export const projects = {
-  loadAll: () => loadList(LIST_PROJECTS),
+  loadAll: () => loadList(LIST_PROJECTS, t => t.status?.status?.toLowerCase() === 'ativo'),
   loadAllWithMeta: loadProjectsWithMeta,
   add: name => addItem(LIST_PROJECTS, name),
   rename: (id, name) => renameItem(id, name),
