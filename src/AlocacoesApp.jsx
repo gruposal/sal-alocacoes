@@ -2165,7 +2165,7 @@ export default function AlocacoesApp() {
 
       {/* ── Toast ── */}
       {toast && (
-        <div className="fixed bottom-28 sm:bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+        <div className="fixed bottom-28 sm:bottom-10 left-1/2 -translate-x-1/2 z-[10001] pointer-events-none">
           <div className="bg-[var(--text-1)] text-[var(--canvas)] text-[14px] font-medium px-4 py-2.5 rounded-lg shadow-lg whitespace-nowrap">
             {toast}
           </div>
