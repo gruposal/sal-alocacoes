@@ -792,13 +792,6 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Projeto</label>
-                <select value={panFilter.project} onChange={e => setPanFilter(f => ({ ...f, project: e.target.value }))} className={selectCls}>
-                  <option value="">Todos</option>
-                  {allPanProjects.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              <div>
                 <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Centro de Custo</label>
                 <select value={panFilter.cc} onChange={e => setPanFilter(f => ({ ...f, cc: e.target.value }))} className={selectCls}>
                   <option value="">Todos</option>
@@ -824,7 +817,7 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                   <input type="checkbox" checked={includeInternos} onChange={e => setIncludeInternos(e.target.checked)} className="accent-[var(--accent)]" />
                   internos
                 </label>
-                {(panFilter.person || panFilter.project || panFilter.cc || panFilter.weekFrom || panFilter.weekTo) && (
+                {(panFilter.person || panFilter.cc || panFilter.weekFrom || panFilter.weekTo) && (
                   <button onClick={() => setPanFilter({ person: "", project: "", cc: "", weekFrom: "", weekTo: "" })}
                     className="pb-2 text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">
                     ↺ Limpar
