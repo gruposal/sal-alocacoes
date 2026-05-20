@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { format, getISOWeek, startOfISOWeek, endOfISOWeek, setISOWeek, setYear } from "date-fns";
 import Dashboard from "./Dashboard.jsx";
 import Directory from "./Directory.jsx";
@@ -465,6 +466,95 @@ function DesvioCell({ forecast, consolidated, onReplicate }) {
   );
 }
 
+// ─── ConfirmDialog ────────────────────────────────────────────────────────────
+function ConfirmDialog({ open, title, message, onConfirm, onCancel, confirmLabel = "Confirmar", danger = true }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = e => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onCancel]);
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onCancel} />
+      <div className="relative bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] shadow-2xl p-6 w-full max-w-sm space-y-4 animate-[fadeInScale_0.15s_ease]">
+        {title && <h2 className="text-[17px] font-semibold text-[var(--text-1)]">{title}</h2>}
+        <p className="text-[14px] text-[var(--text-2)] leading-relaxed">{message}</p>
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-[var(--surface-alt)] text-[var(--text-2)] hover:bg-[var(--border-subtle)] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={onConfirm}
+            className={`px-4 py-2 rounded-lg text-[13.5px] font-medium text-white transition-opacity hover:opacity-90 ${danger ? 'bg-[var(--negative)]' : 'bg-[var(--accent)]'}`}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── EditRowDialog ─────────────────────────────────────────────────────────────
+function EditRowDialog({ open, values, people, projects, bus, inputCls, onChange, onSave, onCancel, saving }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = e => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onCancel]);
+  if (!open || !values) return null;
+  const labelCls = "text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1";
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onCancel} />
+      <div className="relative bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] shadow-2xl p-6 w-full max-w-md space-y-4">
+        <h2 className="text-[17px] font-semibold text-[var(--text-1)]">Editar registro</h2>
+        <div className="text-[12px] text-[var(--text-3)] tabular-nums">W{String(values.ISO_Week).padStart(2,'0')} / {values.Year}</div>
+        <div className="space-y-3">
+          <div>
+            <div className={labelCls}>Pessoa</div>
+            <Combobox value={values.Person} onChange={v => onChange("Person", v)} options={people} placeholder="Pessoa…" className={inputCls} />
+          </div>
+          <div>
+            <div className={labelCls}>Projeto</div>
+            <Combobox value={values.Project} onChange={v => onChange("Project", v)} options={projects} placeholder="Projeto…" className={inputCls} />
+          </div>
+          <div>
+            <div className={labelCls}>Centro de Custo</div>
+            <select className={inputCls} value={values.Business_Unit} onChange={e => onChange("Business_Unit", e.target.value)}>
+              {bus.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <div className={labelCls}>Previstas</div>
+              <HoursInput value={values.Hours_Forecast ?? ""} onChange={v => onChange("Hours_Forecast", v)} className={`${inputCls} text-center tabular-nums`} />
+            </div>
+            <div className="flex-1">
+              <div className={labelCls}>Realizadas</div>
+              <HoursInput value={values.Hours_Consolidated ?? ""} onChange={v => onChange("Hours_Consolidated", v)} className={`${inputCls} text-center tabular-nums`} />
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-[var(--surface-alt)] text-[var(--text-2)] hover:bg-[var(--border-subtle)] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={onSave} disabled={saving}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+            {saving ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AlocacoesApp() {
   // Restaura listas + db do localStorage para evitar re-fetch em toda recarga.
@@ -518,6 +608,7 @@ export default function AlocacoesApp() {
   const [previewWeek, setPreviewWeek]       = useState(null); // null = semana mais recente
   const [editingId, setEditingId]           = useState(null);
   const [editingValues, setEditingValues]   = useState(null);
+  const [confirmDlg, setConfirmDlg]         = useState({ open: false, title: '', message: '', onConfirm: null });
   const [view, setView]                     = useState(() => {
     const v = persisted.view;
     // Migração transitória: chaves antigas "directory" e "timesheet" → "lancar".
@@ -797,11 +888,18 @@ export default function AlocacoesApp() {
     }));
   }
 
+  function askConfirm(message, onConfirm, title = '') {
+    setConfirmDlg({ open: true, title, message, onConfirm });
+  }
+  function closeConfirm() { setConfirmDlg(d => ({ ...d, open: false, onConfirm: null })); }
+
   function addRow()       { setEntries(p => [...p, blankEntry()]); }
   function removeRow(id)  {
     if (entries.length === 1) return;
-    if (!window.confirm("Remover esta linha?")) return;
-    setEntries(p => p.filter(e => e.id !== id));
+    askConfirm("Remover esta linha?", () => {
+      setEntries(p => p.filter(e => e.id !== id));
+      closeConfirm();
+    }, "Remover linha");
   }
   function clearEntries() { setEntries([blankEntry()]); }
 
@@ -1075,9 +1173,16 @@ export default function AlocacoesApp() {
     finally { setLoadingHistory(false); }
   }
 
-  async function deleteDbRow(row) {
-    try { await cuDeleteRow(row); setDb(p => p.filter(r => r.ID !== row.ID)); showToast("Removido."); }
-    catch (e) { console.warn(e); showToast("Erro ao remover."); }
+  function deleteDbRow(row) {
+    askConfirm(
+      `Remover "${row.Person} — ${row.Project}" (W${String(row.ISO_Week).padStart(2,'0')})?`,
+      async () => {
+        closeConfirm();
+        try { await cuDeleteRow(row); setDb(p => p.filter(r => r.ID !== row.ID)); showToast("Removido."); }
+        catch (e) { console.warn(e); showToast("Erro ao remover."); }
+      },
+      "Excluir registro"
+    );
   }
 
   function startEditRow(row)   { setEditingId(row.ID); setEditingValues({ ...row }); }
@@ -1885,29 +1990,16 @@ export default function AlocacoesApp() {
                       <tbody className="divide-y divide-[var(--border-subtle)]">
                         {pagedDb.map(r => (
                           <tr key={r.ID} className="group hover:bg-[var(--surface-alt)] transition-colors">
-                            {editingId === r.ID ? (
-                              <>
-                                <td className={td}><span className="text-[var(--text-3)] text-[13px] tabular-nums">W{toTwo(r.ISO_Week)}</span></td>
-                                <td className={td}><Combobox value={editingValues.Person} onChange={v => changeEditing("Person", v)} options={people} placeholder="Pessoa…" className={inputCls} /></td>
-                                <td className={td}><Combobox value={editingValues.Project} onChange={v => changeEditing("Project", v)} options={projects} placeholder="Projeto…" className={inputCls} /></td>
-                                <td className={td}><select className={inputCls} value={editingValues.Business_Unit} onChange={e => changeEditing("Business_Unit", e.target.value)}>{bus.map(b => <option key={b} value={b}>{b}</option>)}</select></td>
-                                <td className={td}><HoursInput value={editingValues.Hours_Forecast ?? ""} onChange={v => changeEditing("Hours_Forecast", v)} className={`${inputCls} w-16 text-center`} /></td>
-                                <td className={td}><HoursInput value={editingValues.Hours_Consolidated ?? ""} onChange={v => changeEditing("Hours_Consolidated", v)} className={`${inputCls} w-16 text-center`} /></td>
-                                <td className={td} />
-                                <td className={td}><div className="flex gap-2"><button onClick={saveEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--accent)] text-white text-[13px] font-medium">Salvar</button><button onClick={cancelEditRow} className="px-3 py-1.5 rounded-[8px] bg-[var(--surface-alt)] text-[13px]">↩</button></div></td>
-                              </>
-                            ) : (
-                              <>
-                                <td className={`${td} tabular-nums text-[var(--text-3)] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
-                                <td className={`${td} font-medium`}>{r.Person}</td>
-                                <td className={td}>{r.Project}</td>
-                                <td className={td}><span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">{r.Business_Unit}</span></td>
-                                <td className={`${td} text-center tabular-nums`}>{r.Hours_Forecast ?? "—"}</td>
-                                <td className={`${td} text-center tabular-nums`}>{r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}</td>
-                                <td className={`${td} text-center`}>{r.Hours_Consolidated != null ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} /> : <span className="text-[var(--text-3)]">—</span>}</td>
-                                <td className={td}><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">✏</button><button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px]">×</button></div></td>
-                              </>
-                            )}
+                            <>
+                              <td className={`${td} tabular-nums text-[var(--text-3)] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
+                              <td className={`${td} font-medium`}>{r.Person}</td>
+                              <td className={td}>{r.Project}</td>
+                              <td className={td}><span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">{r.Business_Unit}</span></td>
+                              <td className={`${td} text-center tabular-nums`}>{r.Hours_Forecast ?? "—"}</td>
+                              <td className={`${td} text-center tabular-nums`}>{r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}</td>
+                              <td className={`${td} text-center`}>{r.Hours_Consolidated != null ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} /> : <span className="text-[var(--text-3)]">—</span>}</td>
+                              <td className={td}><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">✏</button><button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px]">×</button></div></td>
+                            </>
                           </tr>
                         ))}
                         {!pagedDb.length && <tr><td colSpan={8} className="py-12 text-center text-[15px] text-[var(--text-3)]">{db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}</td></tr>}
@@ -1937,6 +2029,29 @@ export default function AlocacoesApp() {
 
         {view === "directory" && <Directory onListsChanged={loadLists} />}
       </main>
+
+      {/* ── ConfirmDialog ── */}
+      <ConfirmDialog
+        open={confirmDlg.open}
+        title={confirmDlg.title}
+        message={confirmDlg.message}
+        onConfirm={confirmDlg.onConfirm}
+        onCancel={closeConfirm}
+      />
+
+      {/* ── EditRowDialog ── */}
+      <EditRowDialog
+        open={editingId !== null}
+        values={editingValues}
+        people={people}
+        projects={projects}
+        bus={bus}
+        inputCls={inputCls}
+        onChange={changeEditing}
+        onSave={saveEditRow}
+        onCancel={cancelEditRow}
+        saving={saving}
+      />
 
       {/* ── Toast ── */}
       {toast && (
