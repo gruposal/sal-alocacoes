@@ -13,11 +13,14 @@ function DesvioCell({ d }) {
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, color, accent }) {
+function KpiCard({ label, value, color, accent, onClick, active }) {
+  const base = `${card} relative px-5 py-4 overflow-hidden transition-all`;
+  const interactive = onClick ? 'cursor-pointer hover:brightness-[0.97] dark:hover:brightness-110 select-none' : '';
+  const ring = active ? 'ring-2 ring-offset-1 ring-[var(--accent)]' : '';
   return (
-    <div className={`${card} relative px-5 py-4 overflow-hidden`}>
-      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: accent }} />
-      <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">{label}</div>
+    <div className={`${base} ${interactive} ${ring}`} onClick={onClick}>
+      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: active ? 'var(--accent)' : accent }} />
+      <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">{label}{active && <span className="ml-1.5 text-[var(--accent)]">✕</span>}</div>
       <div className={`text-[32px] font-semibold tabular-nums leading-none ${color}`}>{value}</div>
     </div>
   );
@@ -279,6 +282,7 @@ const selectCls = "w-full rounded-md border border-[var(--border-subtle)] bg-[va
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear, recordsContent, onRefresh, loadingHistory }) {
   const [activeTab, setActiveTab] = useState("semana");
+  const [ocupFilter, setOcupFilter] = useState(null); // 'sem-alocacao' | 'parcial' | 'com40h' | 'pendentes'
 
   // ── Aba Semana ───────────────────────────────────────────────────────────────
   const weekRows = useMemo(() =>
@@ -526,80 +530,111 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
             />
           )}
 
-          {/* Alertas operacionais */}
-          <div className="grid sm:grid-cols-2 gap-3">
-            <AlertCard
-              title={`Sem alocação — W${String(selectedWeek).padStart(2,'0')}`}
-              items={alertSemAlocacao}
-              emptyMsg="Todos estão alocados esta semana."
-            />
-            <AlertCard
-              title={`Realizadas pendentes — W${String(prevWeekNum).padStart(2,'0')}`}
-              items={alertPendentes}
-              emptyMsg="Todas as realizadas da semana anterior foram preenchidas."
-            />
-          </div>
-
-          {/* KPIs de ocupação */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard
-              label={`Com 40h — W${String(selectedWeek).padStart(2,'0')}`}
-              value={`${totalCom40h} / ${ocupacaoPorPessoa.length}`}
-              color={totalCom40h === ocupacaoPorPessoa.length ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}
-              accent={totalCom40h === ocupacaoPorPessoa.length ? 'var(--positive)' : 'var(--warning)'}
-            />
-            <KpiCard label="Parcialmente alocados" value={ocupacaoPorPessoa.filter(p => p.forecast > 0 && p.forecast < 40).length.toString()} color="text-[var(--accent)]" accent="var(--accent)" />
-            <KpiCard label="Sem alocação" value={ocupacaoPorPessoa.filter(p => p.forecast === 0).length.toString()} color="text-[var(--negative)]" accent="var(--negative)" />
-            <KpiCard label="Realizadas pendentes" value={alertPendentes.length.toString()} color={alertPendentes.length > 0 ? 'text-[var(--warning)]' : 'text-[var(--positive)]'} accent={alertPendentes.length > 0 ? 'var(--warning)' : 'var(--positive)'} />
-          </div>
+          {/* KPIs de ocupação — clicáveis como filtros da grade */}
+          {(() => {
+            const toggle = key => setOcupFilter(f => f === key ? null : key);
+            const pendentesSet = new Set(alertPendentes);
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <KpiCard
+                  label={`Com 40h — W${String(selectedWeek).padStart(2,'0')}`}
+                  value={`${totalCom40h} / ${ocupacaoPorPessoa.length}`}
+                  color={totalCom40h === ocupacaoPorPessoa.length ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}
+                  accent={totalCom40h === ocupacaoPorPessoa.length ? 'var(--positive)' : 'var(--warning)'}
+                  onClick={() => toggle('com40h')} active={ocupFilter === 'com40h'}
+                />
+                <KpiCard
+                  label="Parcialmente alocados"
+                  value={ocupacaoPorPessoa.filter(p => p.forecast > 0 && p.forecast < 40).length.toString()}
+                  color="text-[var(--accent)]" accent="var(--accent)"
+                  onClick={() => toggle('parcial')} active={ocupFilter === 'parcial'}
+                />
+                <KpiCard
+                  label="Sem alocação"
+                  value={ocupacaoPorPessoa.filter(p => p.forecast === 0).length.toString()}
+                  color="text-[var(--negative)]" accent="var(--negative)"
+                  onClick={() => toggle('sem-alocacao')} active={ocupFilter === 'sem-alocacao'}
+                />
+                <KpiCard
+                  label="Realizadas pendentes"
+                  value={alertPendentes.length.toString()}
+                  color={alertPendentes.length > 0 ? 'text-[var(--warning)]' : 'text-[var(--positive)]'}
+                  accent={alertPendentes.length > 0 ? 'var(--warning)' : 'var(--positive)'}
+                  onClick={() => toggle('pendentes')} active={ocupFilter === 'pendentes'}
+                />
+              </div>
+            );
+          })()}
 
           {/* Grade de ocupação por colaborador */}
-          <div className={card}>
-            <div className="px-5 py-4 border-b border-[var(--border-subtle)]">
-              <h3 className="font-semibold text-[15px]">Ocupação por Colaborador — W{String(selectedWeek).padStart(2,'0')}</h3>
-            </div>
-            <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {ocupacaoPorPessoa.map(p => {
-                const pct = Math.min(100, Math.round((p.forecast / 40) * 100));
-                const over = p.forecast > 40;
-                const full = p.forecast === 40;
-                const partial = p.forecast > 0 && p.forecast < 40;
-                const empty = p.forecast === 0;
-                const barColor = over ? 'var(--negative)' : full ? 'var(--positive)' : partial ? 'var(--accent)' : 'var(--border-strong)';
-                const badgeColor = over
-                  ? 'bg-[var(--negative)]/10 text-[var(--negative)]'
-                  : full ? 'bg-[var(--positive)]/10 text-[var(--positive)]'
-                  : partial ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
-                  : 'bg-[var(--surface-alt)] text-[var(--text-3)]';
-                const hasReal = p.consolidated > 0;
-                return (
-                  <div key={p.person} className={`${card} p-3 space-y-2`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[13.5px] font-medium truncate" title={p.person}>{p.person}</span>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeColor}`}>
-                        {empty ? '0h' : `${p.forecast}h`}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[var(--surface-alt)] overflow-hidden">
-                      <div className="h-full rounded-full transition-all"
-                        style={{ width: `${pct}%`, backgroundColor: barColor }} />
-                    </div>
-                    {hasReal && (
-                      <div className="flex items-center justify-between text-[11.5px] text-[var(--text-3)]">
-                        <span>Realizadas</span>
-                        <span className={`font-semibold tabular-nums ${p.consolidated >= p.forecast ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}`}>
-                          {p.consolidated}h
-                        </span>
+          {(() => {
+            const pendentesSet = new Set(alertPendentes);
+            const filtered = ocupacaoPorPessoa.filter(p => {
+              if (!ocupFilter) return true;
+              if (ocupFilter === 'com40h')      return p.forecast >= 40;
+              if (ocupFilter === 'parcial')     return p.forecast > 0 && p.forecast < 40;
+              if (ocupFilter === 'sem-alocacao') return p.forecast === 0;
+              if (ocupFilter === 'pendentes')   return pendentesSet.has(p.person);
+              return true;
+            });
+            return (
+              <div className={card}>
+                <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
+                  <h3 className="font-semibold text-[15px]">Ocupação por Colaborador — W{String(selectedWeek).padStart(2,'0')}</h3>
+                  {ocupFilter && (
+                    <button onClick={() => setOcupFilter(null)}
+                      className="text-[12px] text-[var(--accent)] hover:underline">
+                      Limpar filtro
+                    </button>
+                  )}
+                </div>
+                <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filtered.map(p => {
+                    const pct = Math.min(100, Math.round((p.forecast / 40) * 100));
+                    const over = p.forecast > 40;
+                    const full = p.forecast === 40;
+                    const partial = p.forecast > 0 && p.forecast < 40;
+                    const empty = p.forecast === 0;
+                    const barColor = over ? 'var(--negative)' : full ? 'var(--positive)' : partial ? 'var(--accent)' : 'var(--border-strong)';
+                    const badgeColor = over
+                      ? 'bg-[var(--negative)]/10 text-[var(--negative)]'
+                      : full ? 'bg-[var(--positive)]/10 text-[var(--positive)]'
+                      : partial ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                      : 'bg-[var(--surface-alt)] text-[var(--text-3)]';
+                    const hasReal = p.consolidated > 0;
+                    return (
+                      <div key={p.person} className={`${card} p-3 space-y-2`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[13.5px] font-medium truncate" title={p.person}>{p.person}</span>
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeColor}`}>
+                            {empty ? '0h' : `${p.forecast}h`}
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[var(--surface-alt)] overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                        </div>
+                        {hasReal && (
+                          <div className="flex items-center justify-between text-[11.5px] text-[var(--text-3)]">
+                            <span>Realizadas</span>
+                            <span className={`font-semibold tabular-nums ${p.consolidated >= p.forecast ? 'text-[var(--positive)]' : 'text-[var(--warning)]'}`}>
+                              {p.consolidated}h
+                            </span>
+                          </div>
+                        )}
+                        {!hasReal && !empty && (
+                          <div className="text-[11px] text-[var(--text-3)]">Realizadas pendentes</div>
+                        )}
                       </div>
-                    )}
-                    {!hasReal && !empty && (
-                      <div className="text-[11px] text-[var(--text-3)]">Realizadas pendentes</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <div className="col-span-full py-8 text-center text-[14px] text-[var(--text-3)]">Nenhum colaborador neste filtro.</div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
