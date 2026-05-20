@@ -2150,7 +2150,23 @@ export default function AlocacoesApp() {
                               <td className={`${td} text-center tabular-nums`}>{r.Hours_Forecast ?? "—"}</td>
                               <td className={`${td} text-center tabular-nums`}>{r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}</td>
                               <td className={`${td} text-center`}>{r.Hours_Consolidated != null ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} /> : <span className="text-[var(--text-3)]">—</span>}</td>
-                              <td className={td}><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">✏</button><button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px]">×</button></div></td>
+                              <td className={td}><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {(Number(r.Hours_Forecast) > 0 && r.Hours_Consolidated == null) && (
+                                  <button
+                                    title={`Replicar ${r.Hours_Forecast}h previsto para realizado`}
+                                    onClick={async () => {
+                                      const updated = { ...r, Hours_Consolidated: Number(r.Hours_Forecast) };
+                                      try {
+                                        await upsertConsolidated([updated]);
+                                        setDb(p => p.map(x => x.ID === r.ID ? updated : x));
+                                        showToast("Realizado replicado.");
+                                      } catch { showToast("Erro ao replicar."); }
+                                    }}
+                                    className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">↺</button>
+                                )}
+                                <button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">✏</button>
+                                <button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px]">×</button>
+                              </div></td>
                             </>
                           </tr>
                         ))}
