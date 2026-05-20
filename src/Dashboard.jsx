@@ -387,12 +387,14 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
 
   // ── Aba Panorama ─────────────────────────────────────────────────────────────
   const [includeInternos, setIncludeInternos] = useState(false);
-  const [panFilter, setPanFilter] = useState({ cc: "", weekFrom: "", weekTo: "" });
+  const [panFilter, setPanFilter] = useState({ cc: "", weekFrom: "", weekTo: "", person: "", project: "" });
   const [hmMode, setHmMode] = useState('forecast');
   const [hmSort, setHmSort] = useState('total');
 
-  const allWeeks = useMemo(() => [...new Set((db || []).map(r => r.ISO_Week).filter(Boolean))].sort((a, b) => a - b), [db]);
-  const allCcs   = useMemo(() => [...new Set((db || []).map(r => r.Business_Unit).filter(Boolean))].sort(), [db]);
+  const allWeeks    = useMemo(() => [...new Set((db || []).map(r => r.ISO_Week).filter(Boolean))].sort((a, b) => a - b), [db]);
+  const allCcs      = useMemo(() => [...new Set((db || []).map(r => r.Business_Unit).filter(Boolean))].sort(), [db]);
+  const allPanPeople   = useMemo(() => [...new Set((db || []).map(r => r.Person).filter(Boolean))].sort(), [db]);
+  const allPanProjects = useMemo(() => [...new Set((db || []).map(r => r.Project).filter(Boolean))].sort(), [db]);
 
   function isInternoProject(name) {
     if (!name) return false;
@@ -402,6 +404,8 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
 
   const panoramaRows = useMemo(() => {
     let rows = db || [];
+    if (panFilter.person)   rows = rows.filter(r => r.Person === panFilter.person);
+    if (panFilter.project)  rows = rows.filter(r => r.Project === panFilter.project);
     if (panFilter.cc)       rows = rows.filter(r => r.Business_Unit === panFilter.cc);
     if (panFilter.weekFrom) rows = rows.filter(r => r.ISO_Week >= Number(panFilter.weekFrom));
     if (panFilter.weekTo)   rows = rows.filter(r => r.ISO_Week <= Number(panFilter.weekTo));
@@ -465,7 +469,6 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
 
   const TABS = [
     { k: "semana",    label: "Semana" },
-    { k: "visao",     label: "Minha Visão" },
     { k: "panorama",  label: "Panorama" },
     { k: "registros", label: "Registros" },
   ];
@@ -780,7 +783,21 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
         <div className="space-y-5">
           {/* Filtros */}
           <div className={`${card} p-4`}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] items-end">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 items-end">
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Pessoa</label>
+                <select value={panFilter.person} onChange={e => setPanFilter(f => ({ ...f, person: e.target.value }))} className={selectCls}>
+                  <option value="">Todos</option>
+                  {allPanPeople.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Projeto</label>
+                <select value={panFilter.project} onChange={e => setPanFilter(f => ({ ...f, project: e.target.value }))} className={selectCls}>
+                  <option value="">Todos</option>
+                  {allPanProjects.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
               <div>
                 <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Centro de Custo</label>
                 <select value={panFilter.cc} onChange={e => setPanFilter(f => ({ ...f, cc: e.target.value }))} className={selectCls}>
@@ -807,8 +824,8 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
                   <input type="checkbox" checked={includeInternos} onChange={e => setIncludeInternos(e.target.checked)} className="accent-[var(--accent)]" />
                   internos
                 </label>
-                {(panFilter.cc || panFilter.weekFrom || panFilter.weekTo) && (
-                  <button onClick={() => setPanFilter({ cc: "", weekFrom: "", weekTo: "" })}
+                {(panFilter.person || panFilter.project || panFilter.cc || panFilter.weekFrom || panFilter.weekTo) && (
+                  <button onClick={() => setPanFilter({ person: "", project: "", cc: "", weekFrom: "", weekTo: "" })}
                     className="pb-2 text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">
                     ↺ Limpar
                   </button>
