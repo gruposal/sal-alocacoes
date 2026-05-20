@@ -120,8 +120,15 @@ export async function loadForWeek(year, isoWeek) {
     { field_id: FIELDS.ano,        operator: '=', value: year },
     { field_id: FIELDS.semana_num, operator: '=', value: isoWeek },
   ];
-  const data = await fetchPage(filters);
-  return (data.tasks || []).map(fromTask);
+  const rows = [];
+  let page = 0;
+  while (true) {
+    const data = await fetchPage(filters, page);
+    rows.push(...(data.tasks || []).map(fromTask));
+    if (data.last_page || !(data.tasks || []).length) break;
+    page++;
+  }
+  return rows;
 }
 
 export async function loadLastYear(year, { onProgress } = {}) {

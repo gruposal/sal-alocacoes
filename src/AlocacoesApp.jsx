@@ -1022,7 +1022,6 @@ export default function AlocacoesApp() {
         rows = await loadForWeek(selectedYear, selectedWeek);
         mergeWeekIntoDb(selectedYear, selectedWeek, rows);
       }
-      setPreviewPage(1);
       mergeRowsIntoCcMap(rows);
       if (!silent) setDbOpen(true);
       const mine = rows.filter(r => r.Person === person);
