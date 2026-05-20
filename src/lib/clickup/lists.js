@@ -93,7 +93,10 @@ export const people = {
 };
 
 export const projects = {
-  loadAll: () => loadList(LIST_PROJECTS, t => t.status?.status?.toLowerCase() === 'ativo'),
+  loadAll: () => loadList(LIST_PROJECTS, t => {
+    const s = typeof t.status === 'string' ? t.status : t.status?.status;
+    return s?.toLowerCase() === 'ativo';
+  }),
   loadAllWithMeta: loadProjectsWithMeta,
   add: name => addItem(LIST_PROJECTS, name),
   rename: (id, name) => renameItem(id, name),
