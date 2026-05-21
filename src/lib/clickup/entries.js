@@ -201,13 +201,13 @@ export async function createEntry(row) {
 export async function upsertForecast(rows) {
   for (const row of rows) {
     const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
-    const cachedId = taskIdCache.get(name);
+    const taskId = await resolveTaskId(name);
 
-    if (cachedId) {
-      await setField(cachedId, FIELDS.horas_previstas, row.Hours_Forecast);
+    if (taskId) {
+      await setField(taskId, FIELDS.horas_previstas, row.Hours_Forecast);
       if (row.Business_Unit) {
         const optId = ccNameToId(row.Business_Unit);
-        if (optId) await setField(cachedId, FIELDS.centro_de_custo, optId);
+        if (optId) await setField(taskId, FIELDS.centro_de_custo, optId);
       }
     } else {
       await createEntry(row);
@@ -240,8 +240,8 @@ export async function upsertConsolidated(rows) {
 
 export async function deleteRow(row) {
   const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
-  const taskId = taskIdCache.get(name) || row._taskId;
-  if (!taskId) return;
+  const taskId = taskIdCache.get(name) || row._taskId || await resolveTaskId(name);
+  if (!taskId) throw new Error(`Task não encontrada para remoção: ${name}`);
   await cuFetch(`/task/${taskId}`, { method: 'DELETE' });
   taskIdCache.delete(name);
 }
