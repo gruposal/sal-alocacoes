@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAL · Alocações</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --white: #fafaf8;
+    --black: #1d1d1f;
+    --gray-0: #86868b;
+    --gray-1: #6e6e73;
+    --gray-2: #aeaeb2;
+    --gray-3: #d2d2d7;
+    --gray-4: #e8e8ed;
+    --gray-5: #f2f2f4;
+    --sal: #e8614a;
+    --sal-soft: rgba(232,97,74,.08);
+    --sal-border: rgba(232,97,74,.18);
+    --sal-dark: #c0391f;
+    --blue: #0071e3;
+    --blue-soft: rgba(0,113,227,.08);
+    --blue-dark: #003d99;
+    --green: #34c759;
+    --green-soft: rgba(52,199,89,.08);
+    --green-dark: #1a7a34;
+    --yellow: #ff9500;
+    --yellow-soft: rgba(255,149,0,.1);
+    --yellow-dark: #9a5900;
+    --red: #ff3b30;
+    --radius-lg: 22px;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --radius-xs: 8px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.04), 0 0 0 .5px rgba(0,0,0,.05);
+    --shadow-md: 0 2px 12px rgba(0,0,0,.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--black);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky; top: 0; z-index: 200;
+    background: rgba(245,245,247,.88);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: .5px solid rgba(0,0,0,.08);
+    height: 52px;
+    display: flex; align-items: center; gap: 0;
+    padding: 0 20px;
+  }
+  .nav-brand {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 17px;
+    font-weight: 400;
+    letter-spacing: -.01em;
+    color: var(--black);
+    margin-right: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-brand::after {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: var(--sal);
+    border-radius: 50%;
+    margin-left: 5px;
+    transform: translateY(-2px);
+  }
+  .nav-tabs {
+    display: flex; gap: 2px;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-1);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+    white-space: nowrap;
+    letter-spacing: -.005em;
+    font-family: 'Geist', sans-serif;
+  }
+  .nav-tab:hover { color: var(--black); background: rgba(0,0,0,.04); }
+  .nav-tab:focus-visible { outline: 2px solid var(--sal); outline-offset: 2px; }
+  .nav-tab.active {
+    background: var(--white);
+    color: var(--black);
+    box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 0 0 .5px rgba(0,0,0,.06);
+  }
+  .nav-right {
+    display: flex; align-items: center; gap: 10px;
+    margin-left: 16px; flex-shrink: 0;
+  }
+  .nav-week-label {
+    font-size: 12px;
+    color: var(--gray-1);
+    padding-right: 10px;
+    border-right: .5px solid var(--gray-3);
+    white-space: nowrap;
+  }
+  /* .nav-save removed — save action lives in the bottom bar only */
+
+  /* ── LAYOUT ── */
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 20px 96px;
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    padding-top: 40px;
+    padding-bottom: 28px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    border-bottom: .5px solid var(--gray-4);
+    margin-bottom: 28px;
+  }
+  .page-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -.02em;
+    color: var(--black);
+  }
+  .page-title em { font-style: italic; color: var(--gray-1); }
+
+  /* ── WEEK NAV ── */
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--white);
+    border: 1px solid var(--gray-3);
+    border-radius: 100px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    align-self: flex-end;
+    margin-bottom: 4px;
+  }
+  .week-nav-btn {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-1);
+    font-size: 15px;
+    transition: color .15s, background .15s;
+  }
+  .week-nav-btn:hover { color: var(--black); background: var(--gray-5); }
+  .week-nav-label {
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--black);
+    border-left: .5px solid var(--gray-4);
+    border-right: .5px solid var(--gray-4);
+    white-space: nowrap;
+    line-height: 40px;
+  }
+  .week-nav-label span {
+    color: var(--gray-1);
+    font-weight: 400;
+    font-size: 12px;
+    margin-left: 4px;
+  }
+
+  /* ── KPI STRIP ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--white);
+    border: 1px solid var(--gray-3);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 24px;
+  }
+  .kpi-cell {
+    padding: 20px 18px;
+    border-right: .5px solid var(--gray-4);
+    position: relative;
+  }
+  .kpi-cell:last-child { border-right: none; }
+  .kpi-cell-label {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--gray-1);
+    letter-spacing: .025em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .kpi-cell-value {
+    font-family: 'Instrument Serif', serif;
+    font-size: 38px;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -.02em;
+    color: var(--black);
+  }
+  .kpi-cell-value.sm {
+    font-size: 28px;
+    letter-spacing: -.018em;
+  }
+  .kpi-cell-value .unit {
+    font-family: 'Geist', sans-serif;
+    font-size: 16px;
+    color: var(--gray-1);
+    font-weight: 400;
+    margin-left: 2px;
+  }
+  .kpi-cell-sub {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--gray-1);
+  }
+  .kpi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .badge-parcial { background: var(--blue-soft); color: var(--blue-dark); }
+  .badge-pendente { background: var(--yellow-soft); color: var(--yellow-dark); }
+  .badge-fechado { background: var(--green-soft); color: var(--green-dark); }
+  .badge-excedido { background: var(--sal-soft); color: var(--sal-dark); }
+
+  /* ── PERSON CARDS ── */
+  .cards-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .person-card {
+    background: var(--white);
+    border: 1px solid var(--gray-3);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow .2s;
+  }
+  .person-card:hover { box-shadow: var(--shadow-md); }
+
+  /* card header */
+  .card-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: .5px solid var(--gray-4);
+  }
+  .card-person-name {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--black);
+    letter-spacing: -.01em;
+    min-width: 0;
+  }
+  .card-status-badge {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 100px;
+    letter-spacing: .01em;
+    white-space: nowrap;
+  }
+  .status-pendente { background: var(--yellow-soft); color: var(--yellow-dark); }
+  .status-parcial { background: var(--blue-soft); color: var(--blue-dark); }
+  .status-fechado { background: var(--green-soft); color: var(--green-dark); }
+  .status-excedido { background: var(--sal-soft); color: var(--sal-dark); border: 1px solid var(--sal-border); }
+
+  .card-btn {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: var(--radius-xs);
+    color: var(--gray-1);
+    font-size: 14px;
+    transition: color .15s, background .15s;
+    flex-shrink: 0;
+  }
+  .card-btn:hover { background: var(--gray-5); color: var(--black); }
+  .card-btn.replicate:hover { background: rgba(0,113,227,.08); color: var(--blue); }
+  .card-btn.remove:hover { background: var(--sal-soft); color: var(--sal-dark); }
+
+  /* table */
+  .card-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .card-table thead tr {
+    border-bottom: .5px solid var(--gray-4);
+  }
+  .card-table th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray-1);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .card-table th.right { text-align: right; }
+  .card-table tbody tr {
+    border-bottom: .5px solid var(--gray-5);
+    transition: background .12s;
+  }
+  .card-table tbody tr:hover { background: rgba(242,242,244,.6); }
+  .card-table tbody tr:last-child { border-bottom: none; }
+  .card-table td {
+    padding: 9px 12px;
+    color: var(--black);
+    vertical-align: middle;
+  }
+  .td-project { font-weight: 500; }
+  .td-cc { color: var(--gray-1); }
+  .td-number { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .td-desvio { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .td-desvio.pos { color: var(--green-dark); }
+  .td-desvio.neg { color: var(--sal-dark); }
+  .td-desvio.zero { color: var(--gray-2); }
+  .td-actions { text-align: right; width: 56px; }
+
+  .row-actions {
+    display: flex; align-items: center; justify-content: flex-end; gap: 2px;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .card-table tbody tr:hover .row-actions { opacity: 1; }
+  .row-btn {
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: none; cursor: pointer;
+    border-radius: 6px;
+    color: var(--gray-2);
+    font-size: 13px;
+    transition: all .12s;
+  }
+  .row-btn.repl:hover { background: rgba(0,113,227,.08); color: var(--blue); }
+  .row-btn.del:hover { background: var(--sal-soft); color: var(--sal); }
+
+  /* input inside table */
+  .td-input {
+    background: var(--gray-5);
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
+    padding: 4px 8px;
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--black);
+    text-align: right;
+    width: 72px;
+    outline: none;
+    transition: border-color .15s, background .15s;
+  }
+  .td-input:focus {
+    border-color: var(--sal);
+    background: var(--white);
+    box-shadow: 0 0 0 3px var(--sal-soft);
+  }
+
+  /* table footer */
+  .card-table tfoot tr {
+    border-top: .5px solid var(--gray-4);
+    background: rgba(242,242,244,.4);
+  }
+  .tfoot-add {
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-1);
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .tfoot-add:hover { color: var(--sal); }
+  .tfoot-total {
+    padding: 9px 12px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tfoot-total.dim { color: var(--gray-2); }
+
+  /* ── ADD PERSON ── */
+  .add-person-btn {
+    width: 100%;
+    padding: 14px;
+    min-height: 44px;
+    background: none;
+    border: 1.5px dashed var(--gray-3);
+    border-radius: var(--radius);
+    font-family: 'Geist', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--gray-1);
+    cursor: pointer;
+    transition: all .18s;
+    letter-spacing: -.005em;
+  }
+  .add-person-btn:hover {
+    border-color: var(--sal);
+    color: var(--sal);
+    background: var(--sal-soft);
+  }
+
+  /* ── BOTTOM BAR ── */
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 20px;
+    margin-top: 4px;
+  }
+  .btn-ghost {
+    background: none;
+    border: none;
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    color: var(--gray-1);
+    cursor: pointer;
+    padding: 10px 8px;
+    min-height: 44px;
+    transition: color .15s;
+    letter-spacing: -.005em;
+    border-radius: var(--radius-xs);
+  }
+  .btn-ghost:hover { color: var(--red); }
+  .btn-primary {
+    background: var(--sal);
+    color: oklch(99% 0.004 40);
+    border: none;
+    border-radius: 999px;
+    padding: 11px 24px;
+    min-height: 44px;
+    font-family: 'Geist', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s ease-out, transform .1s ease-out;
+    letter-spacing: -.01em;
+  }
+  .btn-primary:hover { background: var(--sal-dark); }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── SELECT FAKE (demo) ── */
+  .fake-select {
+    background: transparent;
+    border: none;
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    color: var(--gray-1);
+    cursor: pointer;
+    padding: 0 2px;
+  }
+
+  /* ── SECTION TABS CONTENT ── */
+  .tab-section { display: none; }
+  .tab-section.active { display: block; }
+
+  /* ── SUB TABS ── */
+  .sub-tabs {
+    display: inline-flex;
+    background: var(--gray-4);
+    border-radius: 100px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .sub-tab {
+    padding: 7px 18px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-1);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all .18s;
+    font-family: 'Geist', sans-serif;
+    letter-spacing: -.005em;
+  }
+  .sub-tab.active {
+    background: var(--white);
+    color: var(--black);
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+  .sub-section { display: none; }
+  .sub-section.active { display: block; }
+
+  /* ── PANEL CARD ── */
+  .panel-card {
+    background: var(--white);
+    border: 1px solid var(--gray-3);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 16px;
+  }
+  .panel-card-head {
+    padding: 20px 22px 0;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .panel-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--black);
+    letter-spacing: -.01em;
+    margin-bottom: 3px;
+  }
+  .panel-card-sub {
+    font-size: 12px;
+    color: var(--gray-1);
+    font-weight: 300;
+  }
+
+  /* ── BAR CHART ── */
+  .bar-chart {
+    padding: 4px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 180px 1fr 52px;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .bar-label {
+    font-size: 12.5px;
+    color: var(--black);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .bar-track {
+    height: 8px;
+    background: var(--gray-5);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width .6s cubic-bezier(.2,.8,.2,1);
+  }
+  .bar-val {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--black);
+    text-align: right;
+    tabular-nums: true;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── OCCUPANCY GRID ── */
+  .ocup-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 16px;
+  }
+  .ocup-card {
+    background: var(--white);
+    border: 1px solid var(--gray-3);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    cursor: pointer;
+    transition: box-shadow .18s, border-color .18s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ocup-card:hover { box-shadow: var(--shadow-md); border-color: var(--gray-2); }
+  .ocup-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .ocup-name {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--black);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .ocup-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 100px;
+    flex-shrink: 0;
+  }
+  .ocup-bar-track {
+    height: 6px;
+    background: var(--gray-4);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .ocup-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width .5s cubic-bezier(.2,.8,.2,1);
+  }
+  .ocup-real {
+    font-size: 11px;
+    color: var(--gray-1);
+  }
+
+  /* ── SPARKLINE ── */
+  .sparkline {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 4px 22px 20px;
+    height: 120px;
+  }
+  .spark-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    gap: 4px;
+  }
+  .spark-bar {
+    width: 100%;
+    background: var(--gray-4);
+    border-radius: 4px 4px 0 0;
+    min-height: 4px;
+    transition: height .4s ease;
+  }
+  .spark-wk {
+    font-size: 11px;
+    color: var(--gray-2);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* ── FILTER ── */
+  .filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray-1);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 6px;
+  }
+  .filter-select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--gray-3);
+    background: var(--white);
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    color: var(--black);
+    outline: none;
+    transition: border-color .15s;
+    -webkit-appearance: none;
+  }
+  .filter-select:focus { border-color: var(--sal); box-shadow: 0 0 0 3px var(--sal-soft); }
+
+  /* ── PROJECT & PAINEL PLACEHOLDER ── */
+  .placeholder-section {
+    padding: 80px 0;
+    text-align: center;
+  }
+  .placeholder-section h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--gray-2);
+    font-style: italic;
+    margin-bottom: 10px;
+  }
+  .placeholder-section p { font-size: 14px; color: var(--gray-2); }
+
+  /* ── REGISTROS TABLE ── */
+  .rec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rec-table thead tr { background: var(--gray-5); border-bottom: 1px solid var(--gray-4); }
+  .rec-table th {
+    padding: 9px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray-1);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    position: sticky;
+    top: 52px; /* nav height */
+    background: var(--gray-5);
+    z-index: 1;
+  }
+  .rec-table th.right { text-align: right; }
+  .rec-table tbody tr {
+    border-bottom: .5px solid var(--gray-5);
+    transition: background .1s;
+  }
+  .rec-table tbody tr:hover { background: rgba(242,242,244,.5); }
+  .rec-table tbody tr.row-pending { background: rgba(255,149,0,.04); }
+  .rec-table tbody tr.row-pending:hover { background: rgba(255,149,0,.07); }
+  .rec-table tbody tr:last-child { border-bottom: none; }
+  .rec-table td { padding: 9px 14px; vertical-align: middle; }
+  .rec-table tfoot tr { background: var(--gray-5); border-top: 1px solid var(--gray-4); }
+  .rec-table tfoot td { padding: 9px 14px; }
+
+  /* row actions — always visible in registros (audit view) */
+  .rec-row-actions {
+    display: flex; align-items: center; justify-content: flex-end; gap: 1px;
+  }
+  .rec-row-btn {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: none; cursor: pointer;
+    border-radius: 6px;
+    color: var(--gray-2);
+    font-size: 13px;
+    transition: background .12s, color .12s;
+  }
+  .rec-row-btn:hover { background: var(--gray-5); color: var(--gray-1); }
+  .rec-row-btn.repl:hover { background: rgba(0,113,227,.08); color: var(--blue); }
+  .rec-row-btn.edit:hover { background: var(--gray-5); color: var(--black); font-size: 12px; }
+  .rec-row-btn.del:hover { background: var(--sal-soft); color: var(--sal); }
+  .rec-row-btn:focus-visible { outline: 2px solid var(--sal); outline-offset: 1px; }
+
+  /* pending badge in row */
+  .rec-pending-badge {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--yellow);
+    margin-left: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  /* registros filter bar */
+  .rec-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--white);
+    border: 1px solid var(--gray-3);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .rec-filter-input {
+    padding: 7px 10px;
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--gray-3);
+    background: var(--bg);
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    color: var(--black);
+    outline: none;
+    transition: border-color .15s;
+    min-width: 0;
+  }
+  .rec-filter-input:focus { border-color: var(--sal); box-shadow: 0 0 0 3px var(--sal-soft); background: var(--white); }
+  .rec-filter-input::placeholder { color: var(--gray-2); }
+  .rec-filter-sep { width: .5px; height: 20px; background: var(--gray-4); flex-shrink: 0; }
+  .rec-filter-check {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--gray-1);
+    cursor: pointer; white-space: nowrap;
+    padding: 4px 2px;
+  }
+  .rec-filter-check input { accent-color: var(--sal); }
+  .rec-filter-count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--gray-1);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* floating bulk action bar */
+  .bulk-bar {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--black);
+    color: oklch(95% 0.004 40);
+    border-radius: 100px;
+    padding: 10px 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.12);
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 100;
+    white-space: nowrap;
+    transition: transform .2s cubic-bezier(.2,.8,.2,1), opacity .2s;
+  }
+  .bulk-bar.hidden { transform: translateX(-50%) translateY(12px); opacity: 0; pointer-events: none; }
+  .bulk-bar-count {
+    background: var(--sal);
+    color: oklch(99% 0.004 40);
+    border-radius: 100px;
+    padding: 2px 9px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .bulk-bar-btn {
+    background: rgba(255,255,255,.12);
+    border: none;
+    color: oklch(95% 0.004 40);
+    border-radius: 100px;
+    padding: 5px 12px;
+    font-family: 'Geist', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .bulk-bar-btn:hover { background: rgba(255,255,255,.2); }
+  .bulk-bar-close {
+    background: none; border: none;
+    color: oklch(70% 0 0);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color .12s;
+  }
+  .bulk-bar-close:hover { color: oklch(95% 0.004 40); }
+
+  /* ── FOCUS RINGS ── */
+  :focus-visible {
+    outline: 2px solid var(--sal);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .week-nav-btn:focus-visible,
+  .card-btn:focus-visible,
+  .row-btn:focus-visible,
+  .sub-tab:focus-visible,
+  .add-person-btn:focus-visible { outline-radius: var(--radius-xs); }
+  .btn-primary:focus-visible,
+  .nav-tab:focus-visible { border-radius: 100px; }
+  .td-input:focus-visible { outline: none; } /* td-input has its own focus via box-shadow */
+  .filter-select:focus-visible { outline: none; } /* filter-select has its own focus */
+
+  /* ── REDUCED MOTION ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 720px) {
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    .kpi-cell { border-bottom: .5px solid var(--gray-4); }
+    .page-header { flex-direction: column; gap: 16px; }
+    .ocup-grid { grid-template-columns: repeat(2, 1fr); }
+    .bar-row { grid-template-columns: 120px 1fr 44px; }
+  }
+  @media (max-width: 480px) {
+    .kpi-strip { grid-template-columns: 1fr 1fr; }
+    .ocup-grid { grid-template-columns: 1fr 1fr; }
+    .bar-row { grid-template-columns: 100px 1fr 40px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <span class="nav-brand">SAL · Alocações</span>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('horas', this)">Horas</button>
+    <button class="nav-tab" onclick="switchTab('projeto', this)">Projeto</button>
+    <button class="nav-tab" onclick="switchTab('painel', this)">Painel</button>
+  </div>
+  <div class="nav-right">
+    <span class="nav-week-label">W21 · 18–24 de maio</span>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main>
+
+<!-- ══ HORAS ══ -->
+<div class="tab-section active" id="tab-horas">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Horas</h1>
+    </div>
+    <div class="week-nav">
+      <button class="week-nav-btn" aria-label="Semana anterior">‹</button>
+      <div class="week-nav-label" aria-live="polite">Semana 21<span>18–24 de maio</span></div>
+      <button class="week-nav-btn" aria-label="Próxima semana">›</button>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-cell">
+      <div class="kpi-cell-label">Previstas</div>
+      <div class="kpi-cell-value">320<span class="unit">h</span></div>
+      <div class="kpi-cell-sub">8 pessoas · semana 21</div>
+    </div>
+    <div class="kpi-cell">
+      <div class="kpi-cell-label">Realizadas</div>
+      <div class="kpi-cell-value">160<span class="unit">h</span></div>
+      <div class="kpi-cell-sub">50% do previsto</div>
+    </div>
+    <div class="kpi-cell">
+      <div class="kpi-cell-label">Pessoas</div>
+      <div class="kpi-cell-value">8</div>
+      <div class="kpi-cell-sub">colaboradores alocados</div>
+    </div>
+    <div class="kpi-cell">
+      <div class="kpi-cell-label">Fechados</div>
+      <div class="kpi-cell-value">4<span class="unit"> / 8</span></div>
+      <div class="kpi-cell-sub"><span class="kpi-badge badge-parcial" style="margin-top:0;">parcial · 160/320h</span></div>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="cards-stack">
+
+    <!-- Card 1: pendente -->
+    <div class="person-card">
+      <div class="card-header">
+        <div class="card-person-name">Beatriz Mattos</div>
+        <span class="card-status-badge status-pendente">pendente · 0/40h</span>
+        <button class="card-btn replicate" title="Replicar previstas → realizadas" aria-label="Replicar previstas como realizadas">↺</button>
+      </div>
+      <table class="card-table">
+        <thead>
+          <tr>
+            <th scope="col" style="min-width:200px;">Projeto</th>
+            <th scope="col">Centro de Custo</th>
+            <th scope="col" class="right" style="width:100px;">Previstas</th>
+            <th scope="col" class="right" style="width:100px;">Realizadas</th>
+            <th scope="col" class="right" style="width:80px;">Desvio</th>
+            <th scope="col" style="width:56px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-project">BERSHKA X RIO</td>
+            <td class="td-cc"><select class="fake-select"><option>● COM</option></select></td>
+            <td class="td-number"><input class="td-input" value="16" type="number"></td>
+            <td class="td-number"><input class="td-input" value="" placeholder="0" type="number"></td>
+            <td class="td-desvio zero">—</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl" title="↺">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+          <tr>
+            <td class="td-project">Zoop Fee</td>
+            <td class="td-cc"><select class="fake-select"><option>● FEE</option></select></td>
+            <td class="td-number"><input class="td-input" value="16" type="number"></td>
+            <td class="td-number"><input class="td-input" value="" placeholder="0" type="number"></td>
+            <td class="td-desvio zero">—</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+          <tr>
+            <td class="td-project">Sal Digital</td>
+            <td class="td-cc"><select class="fake-select"><option>● INT</option></select></td>
+            <td class="td-number"><input class="td-input" value="8" type="number"></td>
+            <td class="td-number"><input class="td-input" value="" placeholder="0" type="number"></td>
+            <td class="td-desvio zero">—</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="tfoot-add">+ Adicionar projeto</td>
+            <td class="tfoot-total">40h</td>
+            <td class="tfoot-total dim">—</td>
+            <td class="tfoot-total dim">—</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Card 2: parcial -->
+    <div class="person-card">
+      <div class="card-header">
+        <div class="card-person-name">Rodrigo Abranches</div>
+        <span class="card-status-badge status-parcial">parcial · 24/40h</span>
+        <button class="card-btn replicate" title="Replicar previstas → realizadas" aria-label="Replicar previstas como realizadas">↺</button>
+      </div>
+      <table class="card-table">
+        <thead>
+          <tr>
+            <th scope="col" style="min-width:200px;">Projeto</th>
+            <th scope="col">Centro de Custo</th>
+            <th scope="col" class="right" style="width:100px;">Previstas</th>
+            <th scope="col" class="right" style="width:100px;">Realizadas</th>
+            <th scope="col" class="right" style="width:80px;">Desvio</th>
+            <th scope="col" style="width:56px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-project">Mirage Planejamento</td>
+            <td class="td-cc"><select class="fake-select"><option>● PLA</option></select></td>
+            <td class="td-number"><input class="td-input" value="20" type="number"></td>
+            <td class="td-number"><input class="td-input" value="12" type="number"></td>
+            <td class="td-desvio neg">−8</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+          <tr>
+            <td class="td-project">Gestão Comunicação</td>
+            <td class="td-cc"><select class="fake-select"><option>● INT</option></select></td>
+            <td class="td-number"><input class="td-input" value="12" type="number"></td>
+            <td class="td-number"><input class="td-input" value="8" type="number"></td>
+            <td class="td-desvio neg">−4</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+          <tr>
+            <td class="td-project">BERSHKA X RIO</td>
+            <td class="td-cc"><select class="fake-select"><option>● COM</option></select></td>
+            <td class="td-number"><input class="td-input" value="8" type="number"></td>
+            <td class="td-number"><input class="td-input" value="4" type="number"></td>
+            <td class="td-desvio neg">−4</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="tfoot-add">+ Adicionar projeto</td>
+            <td class="tfoot-total">40h</td>
+            <td class="tfoot-total" style="color:var(--blue-dark);">24h</td>
+            <td class="tfoot-total neg" style="color:var(--sal-dark);">−16</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Card 3: fechado -->
+    <div class="person-card">
+      <div class="card-header">
+        <div class="card-person-name">Ana Correia</div>
+        <span class="card-status-badge status-fechado">fechado · 40h</span>
+        <button class="card-btn replicate" title="Replicar previstas → realizadas" aria-label="Replicar previstas como realizadas">↺</button>
+      </div>
+      <table class="card-table">
+        <thead>
+          <tr>
+            <th scope="col" style="min-width:200px;">Projeto</th>
+            <th scope="col">Centro de Custo</th>
+            <th scope="col" class="right" style="width:100px;">Previstas</th>
+            <th scope="col" class="right" style="width:100px;">Realizadas</th>
+            <th scope="col" class="right" style="width:80px;">Desvio</th>
+            <th scope="col" style="width:56px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-project">RIOgaleão Branding</td>
+            <td class="td-cc"><select class="fake-select"><option>● BRA</option></select></td>
+            <td class="td-number"><input class="td-input" value="16" type="number"></td>
+            <td class="td-number"><input class="td-input" value="16" type="number"></td>
+            <td class="td-desvio zero">—</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+          <tr>
+            <td class="td-project">Gurumê Catering</td>
+            <td class="td-cc"><select class="fake-select"><option>● COM</option></select></td>
+            <td class="td-number"><input class="td-input" value="12" type="number"></td>
+            <td class="td-number"><input class="td-input" value="14" type="number"></td>
+            <td class="td-desvio pos">+2</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+          <tr>
+            <td class="td-project">Casa Carioca Linguagem</td>
+            <td class="td-cc"><select class="fake-select"><option>● BRA</option></select></td>
+            <td class="td-number"><input class="td-input" value="12" type="number"></td>
+            <td class="td-number"><input class="td-input" value="10" type="number"></td>
+            <td class="td-desvio neg">−2</td>
+            <td class="td-actions"><div class="row-actions"><button class="row-btn repl">↺</button><button class="row-btn del">×</button></div></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="tfoot-add">+ Adicionar projeto</td>
+            <td class="tfoot-total">40h</td>
+            <td class="tfoot-total" style="color:var(--green-dark);">40h</td>
+            <td class="tfoot-total zero" style="color:var(--gray-2);">—</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+  </div><!-- /cards-stack -->
+
+  <!-- Add person -->
+  <button class="add-person-btn">+ Adicionar pessoa</button>
+
+  <!-- Bottom bar -->
+  <div class="bottom-bar">
+    <button class="btn-ghost">Limpar</button>
+    <button class="btn-primary">→ Salvar alocações</button>
+  </div>
+
+</div><!-- /tab-horas -->
+
+<!-- ══ PROJETO ══ -->
+<div class="tab-section" id="tab-projeto">
+  <div class="placeholder-section">
+    <h2>Projeto</h2>
+    <p>Alocação por projeto · em breve neste protótipo</p>
+  </div>
+</div>
+
+<!-- ══ PAINEL ══ -->
+<div class="tab-section" id="tab-painel">
+
+  <div class="page-header" style="margin-bottom:20px;">
+    <h1 class="page-title">Painel</h1>
+  </div>
+
+  <!-- Sub-tabs -->
+  <div class="sub-tabs" style="margin-bottom:24px;">
+    <button class="sub-tab active" onclick="switchSubTab('semana',this)">Semana</button>
+    <button class="sub-tab" onclick="switchSubTab('panorama',this)">Panorama</button>
+    <button class="sub-tab" onclick="switchSubTab('registros',this)">Registros</button>
+  </div>
+
+  <!-- ── SEMANA ── -->
+  <div class="sub-section active" id="sub-semana">
+
+    <!-- KPIs topo -->
+    <div class="kpi-strip" style="margin-bottom:16px;">
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Previstas · W21</div>
+        <div class="kpi-cell-value" style="color:var(--sal);">320<span class="unit">h</span></div>
+        <div class="kpi-cell-sub">semana atual</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Realizadas</div>
+        <div class="kpi-cell-value" style="color:var(--green-dark);">160<span class="unit">h</span></div>
+        <div class="kpi-cell-sub">50% do previsto</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Projetos ativos</div>
+        <div class="kpi-cell-value" style="color:var(--yellow);">12</div>
+        <div class="kpi-cell-sub">com horas previstas</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Colaboradores</div>
+        <div class="kpi-cell-value" style="color:var(--sal);">8</div>
+        <div class="kpi-cell-sub">alocados esta semana</div>
+      </div>
+    </div>
+
+    <!-- Horas por projeto (bar chart visual) -->
+    <div class="panel-card" style="margin-bottom:16px;">
+      <div class="panel-card-head">
+        <div>
+          <div class="panel-card-title">Horas Previstas por Projeto · W21</div>
+          <div class="panel-card-sub">horas previstas por projeto esta semana</div>
+        </div>
+      </div>
+      <div class="bar-chart">
+        <div class="bar-row"><span class="bar-label">BERSHKA X RIO</span><div class="bar-track"><div class="bar-fill" style="width:72%;background:var(--sal);"></div></div><span class="bar-val">72h</span></div>
+        <div class="bar-row"><span class="bar-label">Zoop Fee</span><div class="bar-track"><div class="bar-fill" style="width:56%;background:var(--sal);"></div></div><span class="bar-val">56h</span></div>
+        <div class="bar-row"><span class="bar-label">Shopping Leblon Fee</span><div class="bar-track"><div class="bar-fill" style="width:48%;background:var(--sal);"></div></div><span class="bar-val">48h</span></div>
+        <div class="bar-row"><span class="bar-label">SAL TV</span><div class="bar-track"><div class="bar-fill" style="width:40%;background:var(--sal);"></div></div><span class="bar-val">40h</span></div>
+        <div class="bar-row"><span class="bar-label">Sal Digital</span><div class="bar-track"><div class="bar-fill" style="width:32%;background:var(--sal);"></div></div><span class="bar-val">32h</span></div>
+        <div class="bar-row"><span class="bar-label">Mirage Planejamento</span><div class="bar-track"><div class="bar-fill" style="width:24%;background:var(--sal);"></div></div><span class="bar-val">24h</span></div>
+      </div>
+    </div>
+
+    <!-- KPIs de ocupação -->
+    <div class="kpi-strip" style="margin-bottom:16px;">
+      <div class="kpi-cell" style="cursor:pointer;" onmouseenter="this.style.background='var(--gray-5)'" onmouseleave="this.style.background=''">
+        <div class="kpi-cell-label">Com 40h · W21</div>
+        <div class="kpi-cell-value sm" style="color:var(--green-dark);">4 <span style="font-family:'Geist',sans-serif;font-size:14px;color:var(--gray-1);font-weight:400;">/ 8</span></div>
+        <div class="kpi-cell-sub">clique para filtrar</div>
+      </div>
+      <div class="kpi-cell" style="cursor:pointer;" onmouseenter="this.style.background='var(--gray-5)'" onmouseleave="this.style.background=''">
+        <div class="kpi-cell-label">Parcialmente alocados</div>
+        <div class="kpi-cell-value sm" style="color:var(--sal);">3</div>
+        <div class="kpi-cell-sub">menos de 40h</div>
+      </div>
+      <div class="kpi-cell" style="cursor:pointer;" onmouseenter="this.style.background='var(--gray-5)'" onmouseleave="this.style.background=''">
+        <div class="kpi-cell-label">Sem alocação</div>
+        <div class="kpi-cell-value sm" style="color:var(--red);">1</div>
+        <div class="kpi-cell-sub">nenhuma hora prevista</div>
+      </div>
+      <div class="kpi-cell" style="cursor:pointer;" onmouseenter="this.style.background='var(--gray-5)'" onmouseleave="this.style.background=''">
+        <div class="kpi-cell-label">Realizadas pendentes</div>
+        <div class="kpi-cell-value sm" style="color:var(--yellow);">5</div>
+        <div class="kpi-cell-sub">semana anterior aberta</div>
+      </div>
+    </div>
+
+    <!-- Grade de ocupação -->
+    <div class="panel-card">
+      <div class="panel-card-head">
+        <div class="panel-card-title">Ocupação por Colaborador · W21</div>
+      </div>
+      <div class="ocup-grid">
+
+        <div class="ocup-card ocup-full" onclick="">
+          <div class="ocup-top"><span class="ocup-name">Ana Correia</span><span class="ocup-badge badge-fechado">40h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:100%;background:var(--green);"></div></div>
+          <div class="ocup-real">Realizadas <span style="color:var(--green-dark);font-weight:600;">40h</span></div>
+        </div>
+
+        <div class="ocup-card ocup-full" onclick="">
+          <div class="ocup-top"><span class="ocup-name">Beatriz Mattos</span><span class="ocup-badge badge-fechado">40h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:100%;background:var(--green);"></div></div>
+          <div class="ocup-real" style="color:var(--gray-2);">Realizadas pendentes</div>
+        </div>
+
+        <div class="ocup-card" onclick="">
+          <div class="ocup-top"><span class="ocup-name">Rodrigo Abranches</span><span class="ocup-badge badge-parcial">32h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:80%;background:var(--sal);"></div></div>
+          <div class="ocup-real">Realizadas <span style="color:var(--yellow-dark);font-weight:600;">24h</span></div>
+        </div>
+
+        <div class="ocup-card" onclick="">
+          <div class="ocup-top"><span class="ocup-name">Fernando Fernandes</span><span class="ocup-badge badge-parcial">36h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:90%;background:var(--sal);"></div></div>
+          <div class="ocup-real" style="color:var(--gray-2);">Realizadas pendentes</div>
+        </div>
+
+        <div class="ocup-card" onclick="">
+          <div class="ocup-top"><span class="ocup-name">Bruna Braga</span><span class="ocup-badge badge-parcial">24h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:60%;background:var(--sal);"></div></div>
+          <div class="ocup-real" style="color:var(--gray-2);">Realizadas pendentes</div>
+        </div>
+
+        <div class="ocup-card ocup-full">
+          <div class="ocup-top"><span class="ocup-name">João Casotti</span><span class="ocup-badge badge-fechado">40h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:100%;background:var(--green);"></div></div>
+          <div class="ocup-real">Realizadas <span style="color:var(--green-dark);font-weight:600;">40h</span></div>
+        </div>
+
+        <div class="ocup-card ocup-full">
+          <div class="ocup-top"><span class="ocup-name">Talitha Caliman</span><span class="ocup-badge badge-fechado">40h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:100%;background:var(--green);"></div></div>
+          <div class="ocup-real">Realizadas <span style="color:var(--green-dark);font-weight:600;">32h</span></div>
+        </div>
+
+        <div class="ocup-card ocup-empty">
+          <div class="ocup-top"><span class="ocup-name">Mariana Fernandes</span><span class="ocup-badge" style="background:var(--gray-5);color:var(--gray-1);">0h</span></div>
+          <div class="ocup-bar-track"><div class="ocup-bar-fill" style="width:0%;background:var(--gray-3);"></div></div>
+          <div class="ocup-real" style="color:var(--red);font-weight:500;font-size:11px;">Sem alocação</div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /sub-semana -->
+
+  <!-- ── PANORAMA ── -->
+  <div class="sub-section" id="sub-panorama">
+
+    <!-- Filtros -->
+    <div class="panel-card" style="margin-bottom:16px;">
+      <div style="padding:16px 18px; display:grid; grid-template-columns:1fr 1fr auto; gap:16px; align-items:end; border-bottom:.5px solid var(--gray-4);">
+        <div>
+          <div class="filter-label">Pessoa</div>
+          <select class="filter-select"><option>Todas</option><option>Ana Correia</option><option>Beatriz Mattos</option></select>
+        </div>
+        <div>
+          <div class="filter-label">Centro de Custo</div>
+          <select class="filter-select"><option>Todos</option><option>COM</option><option>BRA</option><option>FEE</option></select>
+        </div>
+        <label style="font-size:12px;color:var(--gray-1);display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding-bottom:10px;">
+          <input type="checkbox" style="accent-color:var(--sal);"> internos
+        </label>
+      </div>
+      <div style="padding:12px 18px; display:grid; grid-template-columns:1fr 1fr auto; gap:16px; align-items:end;">
+        <div>
+          <div class="filter-label">Semana de</div>
+          <select class="filter-select"><option>Início</option><option>W01</option><option>W10</option><option>W21</option></select>
+        </div>
+        <div>
+          <div class="filter-label">Até</div>
+          <select class="filter-select"><option>Fim</option><option>W21</option><option>W30</option><option>W52</option></select>
+        </div>
+        <div style="font-size:12px;color:var(--gray-1);padding-bottom:10px;">847 registros</div>
+      </div>
+    </div>
+
+    <!-- KPIs Panorama -->
+    <div class="kpi-strip" style="margin-bottom:16px;">
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Total Previstas</div>
+        <div class="kpi-cell-value" style="color:var(--sal);">6.720<span class="unit">h</span></div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Total Realizadas</div>
+        <div class="kpi-cell-value" style="color:var(--green-dark);">4.480<span class="unit">h</span></div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Projetos</div>
+        <div class="kpi-cell-value">24</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-cell-label">Colaboradores</div>
+        <div class="kpi-cell-value">12</div>
+      </div>
+    </div>
+
+    <!-- Evolução semanal (mini sparkline bars) -->
+    <div class="panel-card" style="margin-bottom:16px;">
+      <div class="panel-card-head">
+        <div>
+          <div class="panel-card-title">Evolução Semanal · Realizadas</div>
+          <div class="panel-card-sub">horas realizadas por semana no período</div>
+        </div>
+      </div>
+      <div class="sparkline">
+        <div class="spark-col"><div class="spark-bar" style="height:30%"></div><div class="spark-wk">W01</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:55%"></div><div class="spark-wk">W02</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:48%"></div><div class="spark-wk">W03</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:62%"></div><div class="spark-wk">W04</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:70%"></div><div class="spark-wk">W05</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:45%"></div><div class="spark-wk">W06</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:80%"></div><div class="spark-wk">W07</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:88%"></div><div class="spark-wk">W08</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:75%"></div><div class="spark-wk">W09</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:92%"></div><div class="spark-wk">W10</div></div>
+        <div class="spark-col"><div class="spark-bar" style="height:100%;background:var(--sal);"></div><div class="spark-wk" style="color:var(--sal);font-weight:600;">W21</div></div>
+      </div>
+    </div>
+
+    <!-- Horas por projeto (Panorama) -->
+    <div class="panel-card">
+      <div class="panel-card-head">
+        <div class="panel-card-title">Horas Realizadas por Projeto</div>
+        <div class="panel-card-sub">período completo</div>
+      </div>
+      <div class="bar-chart">
+        <div class="bar-row"><span class="bar-label">BERSHKA X RIO</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--sal);"></div></div><span class="bar-val">840h</span></div>
+        <div class="bar-row"><span class="bar-label">Shopping Leblon Fee</span><div class="bar-track"><div class="bar-fill" style="width:78%;background:var(--sal);"></div></div><span class="bar-val">655h</span></div>
+        <div class="bar-row"><span class="bar-label">Zoop Fee</span><div class="bar-track"><div class="bar-fill" style="width:65%;background:var(--sal);"></div></div><span class="bar-val">546h</span></div>
+        <div class="bar-row"><span class="bar-label">SAL TV</span><div class="bar-track"><div class="bar-fill" style="width:52%;background:var(--sal);"></div></div><span class="bar-val">437h</span></div>
+        <div class="bar-row"><span class="bar-label">Mirage Planejamento</span><div class="bar-track"><div class="bar-fill" style="width:38%;background:var(--sal);"></div></div><span class="bar-val">319h</span></div>
+      </div>
+    </div>
+  </div><!-- /sub-panorama -->
+
+  <!-- ── REGISTROS ── -->
+  <div class="sub-section" id="sub-registros">
+
+    <!-- Week nav + filter bar -->
+    <div class="rec-filters">
+      <!-- week nav -->
+      <div class="week-nav" style="flex-shrink:0;">
+        <button class="week-nav-btn" aria-label="Semana anterior">‹</button>
+        <div class="week-nav-label" aria-live="polite">W21<span>18–24 de maio</span></div>
+        <button class="week-nav-btn" aria-label="Próxima semana">›</button>
+      </div>
+
+      <div class="rec-filter-sep"></div>
+
+      <!-- structured filters -->
+      <select class="rec-filter-input" aria-label="Filtrar por pessoa" style="width:148px;">
+        <option value="">Todas as pessoas</option>
+        <option>Ana Correia</option>
+        <option>Beatriz Mattos</option>
+        <option>Rodrigo Abranches</option>
+      </select>
+      <select class="rec-filter-input" aria-label="Filtrar por projeto" style="width:156px;">
+        <option value="">Todos os projetos</option>
+        <option>BERSHKA X RIO</option>
+        <option>Mirage Planejamento</option>
+        <option>Sal Digital</option>
+        <option>Zoop Fee</option>
+      </select>
+      <select class="rec-filter-input" aria-label="Filtrar por centro de custo" style="width:120px;">
+        <option value="">Todos os CCs</option>
+        <option>BRA</option>
+        <option>COM</option>
+        <option>FEE</option>
+        <option>INT</option>
+        <option>PLA</option>
+      </select>
+      <input type="search" class="rec-filter-input" placeholder="Buscar…" aria-label="Buscar registros" style="width:140px;">
+
+      <div class="rec-filter-sep"></div>
+
+      <label class="rec-filter-check">
+        <input type="checkbox" aria-label="Mostrar apenas sem realizadas"> sem realizado
+      </label>
+
+      <span class="rec-filter-count">5 registros</span>
+    </div>
+
+    <!-- Table -->
+    <div class="panel-card" style="padding:0;overflow:hidden;">
+      <table class="rec-table">
+        <thead>
+          <tr>
+            <th scope="col" style="width:36px;padding-left:16px;"><input type="checkbox" id="rec-select-all" aria-label="Selecionar todos" style="accent-color:var(--sal);" onchange="toggleBulkBar(this.checked)"></th>
+            <th scope="col">Semana</th>
+            <th scope="col">Pessoa</th>
+            <th scope="col">Projeto</th>
+            <th scope="col">CC</th>
+            <th scope="col" class="right">Previstas</th>
+            <th scope="col" class="right">Realizadas</th>
+            <th scope="col" class="right">Desvio</th>
+            <th scope="col" style="width:88px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <!-- row: fechado -->
+          <tr>
+            <td style="padding-left:16px;"><input type="checkbox" aria-label="Selecionar Ana Correia — RIOgaleão Branding" style="accent-color:var(--sal);"></td>
+            <td style="color:var(--gray-1);font-size:12px;">W21</td>
+            <td style="font-weight:500;">Ana Correia</td>
+            <td>RIOgaleão Branding</td>
+            <td style="color:var(--gray-1);">BRA</td>
+            <td class="td-number">16h</td>
+            <td class="td-number" style="color:var(--green-dark);font-weight:600;">16h</td>
+            <td class="td-desvio zero">—</td>
+            <td>
+              <div class="rec-row-actions">
+                <button class="rec-row-btn repl" aria-label="Replicar previstas como realizadas" title="Replicar">↺</button>
+                <button class="rec-row-btn edit" aria-label="Editar registro" title="Editar">✎</button>
+                <button class="rec-row-btn del" aria-label="Remover registro" title="Remover">×</button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- row: parcial (desvio negativo) -->
+          <tr>
+            <td style="padding-left:16px;"><input type="checkbox" aria-label="Selecionar Rodrigo Abranches — Mirage Planejamento" style="accent-color:var(--sal);"></td>
+            <td style="color:var(--gray-1);font-size:12px;">W21</td>
+            <td style="font-weight:500;">Rodrigo Abranches</td>
+            <td>Mirage Planejamento</td>
+            <td style="color:var(--gray-1);">PLA</td>
+            <td class="td-number">20h</td>
+            <td class="td-number" style="color:var(--yellow-dark);">12h</td>
+            <td class="td-desvio neg">−8</td>
+            <td>
+              <div class="rec-row-actions">
+                <button class="rec-row-btn repl" aria-label="Replicar previstas como realizadas" title="Replicar">↺</button>
+                <button class="rec-row-btn edit" aria-label="Editar registro" title="Editar">✎</button>
+                <button class="rec-row-btn del" aria-label="Remover registro" title="Remover">×</button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- row: pendente (sem realizadas) — visual indicator -->
+          <tr class="row-pending">
+            <td style="padding-left:16px;"><input type="checkbox" aria-label="Selecionar Beatriz Mattos — BERSHKA X RIO" style="accent-color:var(--sal);"></td>
+            <td style="color:var(--gray-1);font-size:12px;">W21</td>
+            <td style="font-weight:500;">Beatriz Mattos <span class="rec-pending-badge" title="Realizadas pendentes" aria-label="realizadas pendentes"></span></td>
+            <td>BERSHKA X RIO</td>
+            <td style="color:var(--gray-1);">COM</td>
+            <td class="td-number">16h</td>
+            <td class="td-number" style="color:var(--gray-2);">—</td>
+            <td class="td-desvio zero">—</td>
+            <td>
+              <div class="rec-row-actions">
+                <button class="rec-row-btn repl" aria-label="Replicar previstas como realizadas" title="Replicar">↺</button>
+                <button class="rec-row-btn edit" aria-label="Editar registro" title="Editar">✎</button>
+                <button class="rec-row-btn del" aria-label="Remover registro" title="Remover">×</button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- row: fechado -->
+          <tr>
+            <td style="padding-left:16px;"><input type="checkbox" aria-label="Selecionar João Casotti — Sal Digital" style="accent-color:var(--sal);"></td>
+            <td style="color:var(--gray-1);font-size:12px;">W21</td>
+            <td style="font-weight:500;">João Casotti</td>
+            <td>Sal Digital</td>
+            <td style="color:var(--gray-1);">INT</td>
+            <td class="td-number">16h</td>
+            <td class="td-number" style="color:var(--green-dark);font-weight:600;">16h</td>
+            <td class="td-desvio zero">—</td>
+            <td>
+              <div class="rec-row-actions">
+                <button class="rec-row-btn repl" aria-label="Replicar previstas como realizadas" title="Replicar">↺</button>
+                <button class="rec-row-btn edit" aria-label="Editar registro" title="Editar">✎</button>
+                <button class="rec-row-btn del" aria-label="Remover registro" title="Remover">×</button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- row: excedido (realizado > previsto) -->
+          <tr>
+            <td style="padding-left:16px;"><input type="checkbox" aria-label="Selecionar Fernando Fernandes — Zoop Fee" style="accent-color:var(--sal);"></td>
+            <td style="color:var(--gray-1);font-size:12px;">W21</td>
+            <td style="font-weight:500;">Fernando Fernandes</td>
+            <td>Zoop Fee</td>
+            <td style="color:var(--gray-1);">FEE</td>
+            <td class="td-number">8h</td>
+            <td class="td-number" style="color:var(--green-dark);font-weight:600;">10h</td>
+            <td class="td-desvio pos">+2</td>
+            <td>
+              <div class="rec-row-actions">
+                <button class="rec-row-btn repl" aria-label="Replicar previstas como realizadas" title="Replicar">↺</button>
+                <button class="rec-row-btn edit" aria-label="Editar registro" title="Editar">✎</button>
+                <button class="rec-row-btn del" aria-label="Remover registro" title="Remover">×</button>
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="font-size:11px;color:var(--gray-1);font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding-left:16px;">Total · 5 registros</td>
+            <td class="tfoot-total">76h</td>
+            <td class="tfoot-total" style="color:var(--green-dark);">54h</td>
+            <td class="tfoot-total" style="color:var(--sal-dark);">−6</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+  </div><!-- /sub-registros -->
+
+  <!-- Floating bulk action bar (shown when rows selected) -->
+  <div class="bulk-bar hidden" id="bulkBar" role="status" aria-live="polite">
+    <span class="bulk-bar-count" id="bulkCount">2</span>
+    selecionados
+    <button class="bulk-bar-btn" onclick="hideBulkBar()">↺ Replicar todos</button>
+    <button class="bulk-bar-close" onclick="hideBulkBar()" aria-label="Fechar seleção">×</button>
+  </div>
+
+</div><!-- /tab-painel -->
+
+</main>
+
+<script>
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function switchSubTab(name, btn) {
+    document.querySelectorAll('.sub-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('sub-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function toggleBulkBar(checked) {
+    const bar = document.getElementById('bulkBar');
+    if (checked) {
+      document.getElementById('bulkCount').textContent = '5';
+      bar.classList.remove('hidden');
+    } else {
+      bar.classList.add('hidden');
+    }
+  }
+
+  function hideBulkBar() {
+    document.getElementById('bulkBar').classList.add('hidden');
+    const cb = document.getElementById('rec-select-all');
+    if (cb) cb.checked = false;
+  }
+</script>
+</body>
+</html>

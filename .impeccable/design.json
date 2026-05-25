@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-25T00:00:00Z",
+  "title": "Design System: SAL · Alocações",
+  "extensions": {
+    "colorMeta": {
+      "laranja-salgado":   { "role": "primary",   "displayName": "Laranja Salgado",   "canonical": "oklch(59% 0.17 34)",   "tonalRamp": ["#3d1208","#6b1e0e","#961f10","#c0391f","#e8614a","#ef8c74","#f6b4a0","#fcddd5"] },
+      "laranja-profundo":  { "role": "primary",   "displayName": "Laranja Profundo",  "canonical": "oklch(46% 0.17 34)",   "tonalRamp": ["#2a0c05","#501208","#7a1a0a","#c0391f","#d44e38","#e07a67","#eeaa9b","#f9d9d3"] },
+      "superficie-fria":   { "role": "neutral",   "displayName": "Superfície Fria",   "canonical": "oklch(97% 0.003 252)", "tonalRamp": ["#86868b","#aeaeb2","#c7c7cc","#d2d2d7","#e8e8ed","#f2f2f4","#f5f5f7","#fafaf8"] },
+      "branco-morno":      { "role": "neutral",   "displayName": "Branco Morno",      "canonical": "oklch(99% 0.002 60)",  "tonalRamp": ["#7a7672","#a3a09b","#c5c2bc","#d8d5d0","#e9e6e1","#f1efea","#f5f3ef","#fafaf8"] },
+      "tinta":             { "role": "neutral",   "displayName": "Tinta",             "canonical": "oklch(16% 0.004 252)", "tonalRamp": ["#1d1d1f","#3a3a3c","#58585a","#76767a","#aeaeb2","#c7c7cc","#e8e8ed","#f5f5f7"] },
+      "verde-fechado":     { "role": "positive",  "displayName": "Verde Fechado",     "canonical": "oklch(72% 0.19 143)",  "tonalRamp": ["#052b10","#0a5520","#10803a","#16a34a","#34c759","#6dd98b","#a5eabf","#d0f5e0"] },
+      "amarelo-pendente":  { "role": "warning",   "displayName": "Amarelo Pendente",  "canonical": "oklch(70% 0.17 60)",   "tonalRamp": ["#3d2200","#7a4400","#b56a00","#d97706","#ff9500","#ffb347","#ffcf88","#ffeac0"] },
+      "vermelho-critico":  { "role": "error",     "displayName": "Vermelho Crítico",  "canonical": "oklch(59% 0.22 27)",   "tonalRamp": ["#3d0300","#7a0700","#b50f0f","#dc2626","#ff3b30","#ff706a","#ffa09c","#ffd5d3"] },
+      "azul-parcial":      { "role": "info",      "displayName": "Azul Parcial",      "canonical": "oklch(54% 0.22 256)",  "tonalRamp": ["#001333","#00286b","#003ea3","#0057d6","#0071e3","#3d96f5","#88bfff","#c0dcff"] }
+    },
+    "typographyMeta": {
+      "display":        { "displayName": "Display KPI",     "purpose": "Números grandes no strip de KPI. Instrumento Serif romano." },
+      "display-italic": { "displayName": "Título de Página","purpose": "Títulos de view (Horas, Painel, Projeto). Instrument Serif itálico." },
+      "headline":       { "displayName": "Headline Card",   "purpose": "Cabeçalhos de card e seção. Geist 600." },
+      "body":           { "displayName": "Body",            "purpose": "Texto de trabalho — inputs, nomes, valores de tabela." },
+      "label":          { "displayName": "Label",           "purpose": "Headers de coluna, rótulos de KPI, labels de filtro. Uppercase obrigatório." }
+    },
+    "shadows": [
+      { "name": "ambient-low",  "value": "0 1px 3px rgba(0,0,0,.04), 0 0 0 .5px rgba(0,0,0,.05)", "purpose": "Cards em repouso. Contorno, não profundidade." },
+      { "name": "ambient-mid",  "value": "0 2px 12px rgba(0,0,0,.06)",                             "purpose": "Hover de card, floating nav." },
+      { "name": "ambient-high", "value": "0 8px 32px rgba(0,0,0,.08)",                             "purpose": "Bulk bar flutuante, elementos sobrepostos." }
+    ],
+    "motion": [
+      { "name": "ease-out-smooth", "value": "cubic-bezier(.2,.8,.2,1)", "purpose": "Padrão para transições de estado (bar fills, reveals)." },
+      { "name": "ease-standard",   "value": "ease-out",                 "purpose": "Hover/focus de componentes simples (150-200ms)." },
+      { "name": "duration-fast",   "value": "150ms",                    "purpose": "Hover states, cor, opacidade." },
+      { "name": "duration-base",   "value": "200ms",                    "purpose": "Transições de componente (card hover, tab switch)." },
+      { "name": "duration-slow",   "value": "400-600ms",                "purpose": "Bar chart fills, bulk bar slide-in." }
+    ],
+    "breakpoints": [
+      { "name": "mobile",  "value": "480px",  "note": "Grid de 2 colunas para KPI strip e ocupação" },
+      { "name": "tablet",  "value": "720px",  "note": "Grid responsivo principal" },
+      { "name": "desktop", "value": "960px",  "note": "Max-width do main container" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão Primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação primária da view — salvar alocações, confirmar. Laranja Salgado, pílula.",
+      "html": "<button class=\"ds-btn-primary\">→ Salvar alocações</button>",
+      "css": ".ds-btn-primary { background: #e8614a; color: oklch(99% 0.004 40); border: none; border-radius: 100px; padding: 11px 24px; min-height: 44px; font-family: 'Geist', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; letter-spacing: -0.01em; transition: background 0.15s ease-out, transform 0.1s ease-out; } .ds-btn-primary:hover { background: #c0391f; } .ds-btn-primary:active { transform: scale(.97); } .ds-btn-primary:disabled { opacity: .45; cursor: not-allowed; } .ds-btn-primary:focus-visible { outline: 2px solid #e8614a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Botão Ghost (Destrutivo)",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ação secundária destrutiva — limpar planejamento. Hover vermelho sinaliza risco.",
+      "html": "<button class=\"ds-btn-ghost\">Limpar</button>",
+      "css": ".ds-btn-ghost { background: none; border: none; font-family: 'Geist', sans-serif; font-size: 13px; color: #6e6e73; cursor: pointer; padding: 10px 8px; min-height: 44px; border-radius: 8px; transition: color 0.15s; letter-spacing: -0.005em; } .ds-btn-ghost:hover { color: #ff3b30; } .ds-btn-ghost:focus-visible { outline: 2px solid #e8614a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badge — Fechado",
+      "kind": "chip",
+      "refersTo": "status-fechado",
+      "description": "Semana completa: realizadas ≥ previstas ≤ 40h. Verde.",
+      "html": "<span class=\"ds-badge-fechado\">fechado · 40h</span>",
+      "css": ".ds-badge-fechado { display: inline-flex; align-items: center; background: rgba(52,199,89,.08); color: #1a7a34; border-radius: 100px; padding: 3px 10px; font-family: 'Geist', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }"
+    },
+    {
+      "name": "Status Badge — Parcial",
+      "kind": "chip",
+      "refersTo": "status-parcial",
+      "description": "Realizadas menores que previstas. Azul informacional.",
+      "html": "<span class=\"ds-badge-parcial\">parcial · 24/40h</span>",
+      "css": ".ds-badge-parcial { display: inline-flex; align-items: center; background: rgba(0,113,227,.08); color: #003d99; border-radius: 100px; padding: 3px 10px; font-family: 'Geist', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }"
+    },
+    {
+      "name": "Status Badge — Pendente",
+      "kind": "chip",
+      "refersTo": "status-pendente",
+      "description": "Previstas sem nenhuma realizada. Amarelo de alerta moderado.",
+      "html": "<span class=\"ds-badge-pendente\">pendente · 0/40h</span>",
+      "css": ".ds-badge-pendente { display: inline-flex; align-items: center; background: rgba(255,149,0,.1); color: #9a5900; border-radius: 100px; padding: 3px 10px; font-family: 'Geist', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }"
+    },
+    {
+      "name": "Status Badge — Excedido",
+      "kind": "chip",
+      "refersTo": "status-excedido",
+      "description": "Total excede 40h. Laranja Salgado com borda — o único badge com borda.",
+      "html": "<span class=\"ds-badge-excedido\">excedido · 45h realizadas</span>",
+      "css": ".ds-badge-excedido { display: inline-flex; align-items: center; background: rgba(232,97,74,.08); color: #c0391f; border: 1px solid rgba(232,97,74,.18); border-radius: 100px; padding: 3px 10px; font-family: 'Geist', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }"
+    },
+    {
+      "name": "KPI Cell",
+      "kind": "card",
+      "refersTo": "kpi-cell",
+      "description": "Célula do strip de métricas. Número grande em Instrument Serif, label small uppercase.",
+      "html": "<div class=\"ds-kpi-cell\"><div class=\"ds-kpi-label\">Previstas · W21</div><div class=\"ds-kpi-value\">320<span class=\"ds-kpi-unit\">h</span></div><div class=\"ds-kpi-sub\">8 pessoas esta semana</div></div>",
+      "css": ".ds-kpi-cell { padding: 20px 18px; background: #fafaf8; } .ds-kpi-label { font-family: 'Geist', sans-serif; font-size: 11px; font-weight: 600; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.025em; margin-bottom: 8px; } .ds-kpi-value { font-family: 'Instrument Serif', Georgia, serif; font-size: 38px; font-weight: 400; line-height: 1; letter-spacing: -0.02em; color: #1d1d1f; } .ds-kpi-unit { font-family: 'Geist', sans-serif; font-size: 16px; color: #6e6e73; font-weight: 400; margin-left: 2px; } .ds-kpi-sub { margin-top: 6px; font-family: 'Geist', sans-serif; font-size: 12px; color: #6e6e73; }"
+    },
+    {
+      "name": "Nav Tab",
+      "kind": "nav",
+      "refersTo": "nav-tab-active",
+      "description": "Tab de navegação principal. Pílula com estado ativo/inativo. Nav é frosted glass.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-tab ds-nav-tab-active\">Horas</button><button class=\"ds-nav-tab\">Projeto</button><button class=\"ds-nav-tab\">Painel</button></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; height: 52px; background: rgba(245,245,247,.88); backdrop-filter: saturate(180%) blur(20px); border-bottom: .5px solid rgba(0,0,0,.08); padding: 0 20px; gap: 2px; } .ds-nav-tab { padding: 6px 14px; border-radius: 100px; font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 500; color: #6e6e73; border: none; background: transparent; cursor: pointer; transition: background 0.18s ease, color 0.18s ease; white-space: nowrap; } .ds-nav-tab:hover { color: #1d1d1f; background: rgba(0,0,0,.04); } .ds-nav-tab.ds-nav-tab-active { background: #fafaf8; color: #1d1d1f; box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 0 0 .5px rgba(0,0,0,.06); } .ds-nav-tab:focus-visible { outline: 2px solid #e8614a; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Precision Made in Brazil",
+    "overview": "SAL Alocações opera na intersecção entre ferramenta de produtividade e identidade de agência criativa brasileira. A precisão de ferramentas como Linear ou Figma — densidade de dados, hierarquia clara, resposta imediata — combinada com a voz visual do Relatório Sal Digital: Instrument Serif onde os dados merecem destaque, Geist onde o trabalho acontece, o Laranja Salgado como presença discreta mas inconfundível.\n\nO sistema recusa dois opostos igualmente errados: o minimalismo genérico sem personalidade e o dashboard de BI pesado com gráficos em todo canto. O resultado é um produto que parece feito para — e por — pessoas que entendem de comunicação visual.",
+    "keyCharacteristics": [
+      "Instrument Serif para números grandes e títulos de página; Geist para tudo que trabalha",
+      "Laranja Salgado como presença pontual: ação primária e alertas críticos apenas",
+      "Hierarquia por escala tipográfica, não por cor",
+      "Status comunicados por badge de texto + cor (nunca só cor)",
+      "Fundo frio levemente tintado com superfícies quentes-mornas"
+    ],
+    "rules": [
+      { "name": "A Regra do Acento Único",   "body": "O Laranja Salgado aparece em ≤10% de qualquer tela: botão primário, badge excedido, e ponto do logotipo. A raridade é o que o torna eficaz.",                                   "section": "colors" },
+      { "name": "A Regra do Texto na Cor",   "body": "Texto sobre fundo colorido usa sempre a variante escura da mesma família. Nunca texto cinza ou preto sobre background tintado.",                                                  "section": "colors" },
+      { "name": "A Regra Dois Momentos",     "body": "Instrument Serif tem permissão em dois contextos: (1) título de página e (2) número de KPI grande. Qualquer outro uso usa Geist.",                                              "section": "typography" },
+      { "name": "A Regra Plano por Padrão",  "body": "Superfícies de dados são planas. Sombra aparece como resposta de estado (hover, floating) — nunca decoração em repouso.",                                                       "section": "elevation" }
+    ],
+    "dos": [
+      "Use Instrument Serif exclusivamente em títulos de página e números de KPI",
+      "Mostre estado com texto + cor juntos — nunca só a cor",
+      "Use o Laranja Salgado em ≤10% da tela",
+      "Coloque avisos no lugar certo — badge no card, aviso inline na tabela",
+      "Tamanho mínimo de 44px para alvos de toque"
+    ],
+    "donts": [
+      "Não use dashboard de BI pesado — gráficos em todo canto, densidade sufocante",
+      "Não use planilha de RH sem identidade — tabelas brancas, zero personalidade",
+      "Não use SaaS americano genérico — gradientes roxos, Inter 14px em todo lugar",
+      "Não coloque Instrument Serif em labels, botões ou copy de UI",
+      "Não use border-left maior que 1px como acento colorido",
+      "Não aplique background-clip: text com gradiente",
+      "Não transmita estado só por cor — texto do estado é obrigatório",
+      "Não use glassmorphism decorativo"
+    ]
+  }
+}
