@@ -987,6 +987,18 @@ export default function AlocacoesApp() {
   }
   function addPlanRow(gid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: [...g.rows, blankPlanRow()] } : g)); }
   function removePlanRow(gid, rid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: g.rows.filter(r => r.id !== rid) } : g)); }
+  const projetoKpis = useMemo(() => {
+    const totalF  = projetoRows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
+    const totalC  = projetoRows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
+    const pessoas = projetoRows.filter(r => r.person).length;
+    const fechados = projetoRows.filter(r => {
+      const f = Number(r.hours_forecast) || 0;
+      const c = Number(r.hours_consolidated) || 0;
+      return r.person && f > 0 && c >= f;
+    }).length;
+    return { totalF, totalC, pessoas, fechados };
+  }, [projetoRows]);
+
   const alocKpis = useMemo(() => {
     const totalF   = planGroups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + (Number(r.hours_forecast) || 0), 0), 0);
     const totalC   = planGroups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + (Number(r.hours_consolidated) || 0), 0), 0);
@@ -1603,6 +1615,34 @@ export default function AlocacoesApp() {
                 </button>
               </div>
             </header>
+
+            {/* KPI strip — só aparece quando há pessoas alocadas */}
+            {projetoProject && projetoRows.some(r => r.person && (Number(r.hours_forecast) > 0 || Number(r.hours_consolidated) > 0)) && (
+              <div className={`grid grid-cols-2 lg:grid-cols-4 overflow-hidden ${card}`}>
+                <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Previstas</div>
+                  <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--accent)]">{projetoKpis.totalF}<span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">h</span></div>
+                </div>
+                <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Realizadas</div>
+                  <div className={`font-display text-[36px] tracking-[-0.02em] leading-none ${projetoKpis.totalC > 0 ? 'text-[var(--positive)]' : 'text-[var(--text-3)]'}`}>
+                    {projetoKpis.totalC > 0 ? projetoKpis.totalC : '—'}
+                    {projetoKpis.totalC > 0 && <span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">h</span>}
+                  </div>
+                </div>
+                <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Pessoas</div>
+                  <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--text-1)]">{projetoKpis.pessoas}</div>
+                </div>
+                <div className="px-5 py-4">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Fechados</div>
+                  <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--text-1)]">
+                    {projetoKpis.fechados}
+                    <span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">/ {projetoKpis.pessoas}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className={card}>
               {/* Seletor de projeto */}
