@@ -15,13 +15,12 @@ function DesvioCell({ d }) {
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, color, accent, onClick, active }) {
   const base = `${card} relative px-5 py-4 overflow-hidden transition-all`;
-  const interactive = onClick ? 'cursor-pointer hover:brightness-[0.97] dark:hover:brightness-110 select-none' : '';
+  const interactive = onClick ? 'cursor-pointer hover:shadow-[var(--shadow-md)] select-none' : '';
   const ring = active ? 'ring-2 ring-offset-1 ring-[var(--accent)]' : '';
   return (
     <div className={`${base} ${interactive} ${ring}`} onClick={onClick}>
-      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: active ? 'var(--accent)' : accent }} />
-      <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">{label}{active && <span className="ml-1.5 text-[var(--accent)]">✕</span>}</div>
-      <div className={`text-[32px] font-semibold tabular-nums leading-none ${color}`}>{value}</div>
+      <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">{label}{active && <span className="ml-1.5 text-[var(--accent)]">✕</span>}</div>
+      <div className={`font-display tabular-nums leading-none text-[36px] tracking-[-0.02em] ${color}`}>{value}</div>
     </div>
   );
 }
@@ -484,18 +483,20 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
   return (
     <div className="space-y-5">
 
-      {/* Sub-tab navigation */}
-      <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] pb-0">
-        {TABS.map(t => (
-          <button key={t.k} onClick={() => setActiveTab(t.k)}
-            className={`px-4 py-2 text-[13.5px] font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
-              activeTab === t.k
-                ? 'border-[var(--accent)] text-[var(--accent)]'
-                : 'border-transparent text-[var(--text-3)] hover:text-[var(--text-1)]'
-            }`}>
-            {t.label}
-          </button>
-        ))}
+      {/* Sub-tab navigation — pill style */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-[2px] p-[3px] bg-[var(--surface-alt)] rounded-full">
+          {TABS.map(t => (
+            <button key={t.k} onClick={() => setActiveTab(t.k)}
+              className={`px-[18px] py-[7px] text-[13px] font-medium rounded-full transition-all ${
+                activeTab === t.k
+                  ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-[0_1px_3px_rgba(0,0,0,.10)]'
+                  : 'text-[var(--text-2)] hover:text-[var(--text-1)]'
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
         {onRefresh && (
           <button onClick={onRefresh} disabled={loadingHistory}
             className="ml-auto text-[12.5px] text-[var(--text-2)] hover:text-[var(--accent)] disabled:opacity-40 transition-colors px-2 pb-2">

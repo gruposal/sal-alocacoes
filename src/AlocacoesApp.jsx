@@ -324,7 +324,7 @@ function HeroHeader({ title, subtitle, right, eyebrow }) {
             {eyebrow}
           </div>
         )}
-        <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)] leading-tight">
+        <h1 className="font-display-italic text-[28px] tracking-[-0.02em] text-[var(--text-1)]">
           {title}
         </h1>
         {subtitle && (
@@ -987,6 +987,18 @@ export default function AlocacoesApp() {
   }
   function addPlanRow(gid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: [...g.rows, blankPlanRow()] } : g)); }
   function removePlanRow(gid, rid) { setPlanGroups(p => p.map(g => g.id === gid ? { ...g, rows: g.rows.filter(r => r.id !== rid) } : g)); }
+  const alocKpis = useMemo(() => {
+    const totalF   = planGroups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + (Number(r.hours_forecast) || 0), 0), 0);
+    const totalC   = planGroups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + (Number(r.hours_consolidated) || 0), 0), 0);
+    const pessoas  = planGroups.filter(g => g.person).length;
+    const fechados = planGroups.filter(g => {
+      const f = g.rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
+      const c = g.rows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
+      return f > 0 && c >= f && c <= 40;
+    }).length;
+    return { totalF, totalC, pessoas, fechados };
+  }, [planGroups]);
+
   function replicatePlanRow(gid, rid) {
     setPlanGroups(p => p.map(g => g.id !== gid ? g : {
       ...g, rows: g.rows.map(r => r.id !== rid ? r : { ...r, hours_consolidated: r.hours_forecast }),
@@ -1252,11 +1264,11 @@ export default function AlocacoesApp() {
 
   // ─── Editorial design tokens (warm off-white + serif display) ────────────
   const bg        = "min-h-screen bg-[var(--canvas)] text-[var(--text-1)]";
-  const card      = "bg-[var(--surface)] rounded-xl border border-[var(--border-subtle)]";
-  const inputCls  = "rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors w-full";
-  const btnBlue   = "inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md bg-[var(--accent)] text-[var(--accent-fg)] text-[14px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--accent-hover)]";
-  const btnGhost  = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--border-subtle)] bg-transparent text-[var(--text-1)] text-[13px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--surface-alt)] hover:border-[var(--border-strong)]";
-  const th        = "px-3 py-2 text-left text-[10.5px] font-semibold text-[var(--text-3)] uppercase tracking-[0.06em] whitespace-nowrap";
+  const card      = "bg-[var(--surface)] rounded-[18px] border border-[var(--border-subtle)]";
+  const inputCls  = "rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors w-full";
+  const btnBlue   = "inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-full bg-[var(--accent)] text-[var(--accent-fg)] text-[14px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--accent-hover)]";
+  const btnGhost  = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-[var(--border-subtle)] bg-transparent text-[var(--text-1)] text-[13px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--surface-alt)] hover:border-[var(--border-strong)]";
+  const th        = "px-3 py-2 text-left text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] whitespace-nowrap";
   const td        = "px-3 py-2";
   const sep       = "divide-y divide-[var(--border-subtle)]";
 
@@ -1278,10 +1290,8 @@ export default function AlocacoesApp() {
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 bg-[var(--canvas)]/95 backdrop-blur-md border-b border-[var(--border-subtle)]">
         <div className="w-full px-6 sm:px-10 lg:px-16 xl:px-24 h-14 flex items-center gap-4">
-          <span className="text-[15px] tracking-tight shrink-0">
-            <span className="font-semibold">Grupo SAL</span>
-            <span className="text-[var(--text-3)] mx-2">·</span>
-            <span className="text-[var(--text-2)]">Alocações</span>
+          <span className="font-display-italic text-[17px] tracking-[-0.01em] shrink-0 text-[var(--text-1)] after:content-[''] after:inline-block after:w-[5px] after:h-[5px] after:bg-[var(--accent)] after:rounded-full after:ml-[5px] after:translate-y-[-2px] after:align-middle">
+            Grupo SAL · Alocações
           </span>
 
           {/* Tabs — desktop, underline style */}
@@ -1324,7 +1334,7 @@ export default function AlocacoesApp() {
         {view === "alocacoes" && (
           <>
             <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
-              <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+              <h1 className="font-display-italic text-[28px] tracking-[-0.02em] text-[var(--text-1)]">
                 Horas
               </h1>
               <WeekNav
@@ -1332,6 +1342,34 @@ export default function AlocacoesApp() {
                 onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
               />
             </header>
+
+            {/* KPI strip */}
+            {planGroups.some(g => g.person) && (
+              <div className={`grid grid-cols-2 lg:grid-cols-4 overflow-hidden ${card}`}>
+                <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Previstas</div>
+                  <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--accent)]">{alocKpis.totalF}<span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">h</span></div>
+                </div>
+                <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Realizadas</div>
+                  <div className={`font-display text-[36px] tracking-[-0.02em] leading-none ${alocKpis.totalC > 0 ? 'text-[var(--positive)]' : 'text-[var(--text-3)]'}`}>
+                    {alocKpis.totalC > 0 ? alocKpis.totalC : '—'}
+                    {alocKpis.totalC > 0 && <span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">h</span>}
+                  </div>
+                </div>
+                <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Pessoas</div>
+                  <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--text-1)]">{alocKpis.pessoas}</div>
+                </div>
+                <div className="px-5 py-4">
+                  <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Fechados</div>
+                  <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--text-1)]">
+                    {alocKpis.fechados}
+                    <span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">/ {alocKpis.pessoas}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               {planGroups.map(g => {
@@ -1364,7 +1402,7 @@ export default function AlocacoesApp() {
                         />
                       </div>
                       {statusBadge && (
-                        <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 px-2 py-0.5 rounded-md ${statusBadge.cls}`}>
+                        <span className={`text-[11px] font-semibold tracking-wide shrink-0 px-2.5 py-0.5 rounded-full ${statusBadge.cls}`}>
                           {statusBadge.label}
                         </span>
                       )}
@@ -1550,7 +1588,7 @@ export default function AlocacoesApp() {
         {view === "projeto" && (
           <>
             <header className="pb-4 border-b border-[var(--border-subtle)] space-y-3">
-              <h1 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+              <h1 className="font-display-italic text-[28px] tracking-[-0.02em] text-[var(--text-1)]">
                 Projeto
               </h1>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -1757,6 +1795,10 @@ export default function AlocacoesApp() {
         ══════════════════════════════════════════ */}
         {view === "dashboard" && (
           <>
+            <header className="pb-4 border-b border-[var(--border-subtle)] mb-6">
+              <h1 className="font-display-italic text-[28px] tracking-[-0.02em] text-[var(--text-1)]">Painel</h1>
+            </header>
+
             {/* Dashboard charts */}
             <Dashboard
               db={db}
