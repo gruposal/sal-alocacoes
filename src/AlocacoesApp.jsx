@@ -390,17 +390,17 @@ function WeekStatus({ entries }) {
   const hasForecast = entries.some(e => Number(e.hours_forecast) > 0);
   const hasConsolidated = entries.some(e => Number(e.hours_consolidated) > 0);
   if (hasConsolidated) return (
-    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--positive)]/10 text-[var(--positive)]">
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[var(--positive-soft)] text-[var(--positive-text)]">
       ● Consolidado
     </span>
   );
   if (hasForecast) return (
-    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--warning)]/10 text-[var(--warning)]">
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[var(--warning-soft)] text-[var(--warning-text)]">
       ◑ Previsão
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--surface-alt)] text-[var(--text-3)]">
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-3)]">
       ○ Sem lançamento
     </span>
   );
@@ -580,7 +580,7 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel, confirmLabel
             Cancelar
           </button>
           <button onClick={onConfirm}
-            className={`px-4 py-2 rounded-lg text-[13.5px] font-medium text-white transition-opacity hover:opacity-90 ${danger ? 'bg-[var(--negative)]' : 'bg-[var(--accent)]'}`}>
+            className={`px-4 py-2 rounded-full text-[13.5px] font-medium text-[var(--accent-fg)] transition-opacity hover:opacity-90 min-h-[40px] ${danger ? 'bg-[var(--negative)]' : 'bg-[var(--accent)]'}`}>
             {confirmLabel}
           </button>
         </div>
@@ -638,7 +638,7 @@ function EditRowDialog({ open, values, people, projects, bus, inputCls, onChange
             Cancelar
           </button>
           <button onClick={onSave} disabled={saving}
-            className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+            className="px-4 py-2 rounded-full text-[13.5px] font-medium bg-[var(--accent)] text-[var(--accent-fg)] hover:opacity-90 transition-opacity disabled:opacity-50 min-h-[40px]">
             {saving ? "Salvando…" : "Salvar"}
           </button>
         </div>
@@ -1377,16 +1377,16 @@ export default function AlocacoesApp() {
                 const groupTotalC = g.rows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
                 const statusBadge =
                   groupTotalC > 40
-                    ? { label: `excedido · ${groupTotalC}h realizadas`, cls: "text-[var(--negative)] bg-[var(--negative)]/10" }
+                    ? { label: `excedido · ${groupTotalC}h realizadas`, cls: "text-[var(--negative-text)] bg-[var(--negative-soft)] border border-[var(--negative-soft)]" }
                   : groupTotalF > 40
-                    ? { label: `excedido · ${groupTotalF}h previstas`,  cls: "text-[var(--negative)] bg-[var(--negative)]/10" }
+                    ? { label: `excedido · ${groupTotalF}h previstas`,  cls: "text-[var(--negative-text)] bg-[var(--negative-soft)] border border-[var(--negative-soft)]" }
                   : !groupTotalF
                     ? null
                   : groupTotalC === 0
-                    ? { label: `pendente · 0/${groupTotalF}h`,           cls: "text-[var(--warning)] bg-[var(--warning)]/10" }
+                    ? { label: `pendente · 0/${groupTotalF}h`,           cls: "text-[var(--warning-text)] bg-[var(--warning-soft)]" }
                   : groupTotalC >= groupTotalF
-                    ? { label: `fechado · ${groupTotalC}h`,              cls: "text-[var(--positive)] bg-[var(--positive)]/10" }
-                  : { label: `parcial · ${groupTotalC}/${groupTotalF}h`, cls: "text-[var(--accent)] bg-[var(--accent)]/10" };
+                    ? { label: `fechado · ${groupTotalC}h`,              cls: "text-[var(--positive-text)] bg-[var(--positive-soft)]" }
+                  : { label: `parcial · ${groupTotalC}/${groupTotalF}h`, cls: "text-[var(--info-text)] bg-[var(--info-soft)]" };
                 const canReplicate = g.rows.some(r => Number(r.hours_forecast) > 0);
                 return (
                   <div key={g.id} className={card}>
@@ -1841,110 +1841,118 @@ export default function AlocacoesApp() {
                   } catch { showToast("Erro ao replicar."); }
                 };
                 const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); setRecOnlyPending(false); setRecSelected(new Set()); };
+                const pendingTh = "px-3 py-2.5 text-left text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] whitespace-nowrap sticky top-0 bg-[var(--surface-alt)] z-10";
+                const recTd = "px-3 py-2.5 text-[13px]";
                 const recordsJsx = (
                 <div>
-                  {/* Nav de semana — sempre no topo */}
-                  {previewWeeks.length > 0 && (
-                    <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center gap-2">
-                      <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx + 1]); setRecSelected(new Set()); }} disabled={weekIdx >= previewWeeks.length - 1} className={`${btnGhost} py-1.5 px-3`}>←</button>
-                      <select value={activeWeek ?? ''} onChange={e => { setPreviewWeek(Number(e.target.value)); setRecSelected(new Set()); }}
-                        className="text-[14px] font-semibold rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none">
-                        {previewWeeks.map(w => <option key={w} value={w}>W{String(w).padStart(2,'0')}</option>)}
-                      </select>
-                      <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx - 1]); setRecSelected(new Set()); }} disabled={weekIdx <= 0} className={`${btnGhost} py-1.5 px-3`}>→</button>
-                      <span className="ml-auto text-[13px] text-[var(--text-3)] tabular-nums">
-                        {isRecFilterActive
-                          ? `${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''} encontrado${visibleRows.length !== 1 ? 's' : ''}`
-                          : `${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''}`}
-                      </span>
-                    </div>
-                  )}
-                  {/* Filtros estruturados */}
-                  <div className="px-4 py-3 border-b border-[var(--border-subtle)] space-y-3">
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Pessoa</label>
-                        <select value={recFilter.person} onChange={e => setRecFilter(f => ({ ...f, person: e.target.value }))} className={inputCls}>
-                          <option value="">Todas</option>
-                          {recPeople.map(p => <option key={p} value={p}>{p}</option>)}
+                  {/* Barra de filtros — nav de semana + filtros lado a lado */}
+                  <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex flex-wrap items-center gap-2">
+                    {/* Week nav */}
+                    {previewWeeks.length > 0 && (
+                      <div className="flex items-center gap-0 bg-[var(--surface)] border border-[var(--border-strong)] rounded-full overflow-hidden shrink-0" style={{boxShadow:'var(--shadow-sm)'}}>
+                        <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx + 1]); setRecSelected(new Set()); }} disabled={weekIdx >= previewWeeks.length - 1}
+                          className="w-9 h-9 flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] disabled:opacity-30 transition-colors text-[14px]">‹</button>
+                        <select value={activeWeek ?? ''} onChange={e => { setPreviewWeek(Number(e.target.value)); setRecSelected(new Set()); }}
+                          className="text-[13px] font-semibold bg-transparent border-none border-x border-[var(--border-subtle)] px-3 h-9 focus:outline-none text-[var(--text-1)]">
+                          {previewWeeks.map(w => <option key={w} value={w}>W{String(w).padStart(2,'0')}</option>)}
                         </select>
+                        <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx - 1]); setRecSelected(new Set()); }} disabled={weekIdx <= 0}
+                          className="w-9 h-9 flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] disabled:opacity-30 transition-colors text-[14px]">›</button>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">Projeto</label>
-                        <select value={recFilter.project} onChange={e => setRecFilter(f => ({ ...f, project: e.target.value }))} className={inputCls}>
-                          <option value="">Todos</option>
-                          {recProjects.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wide mb-1.5">CC</label>
-                        <select value={recFilter.cc} onChange={e => setRecFilter(f => ({ ...f, cc: e.target.value }))} className={inputCls}>
-                          <option value="">Todos</option>
-                          {recCcs.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
-                        placeholder="Busca livre…" className={`${inputCls} max-w-xs`} />
-                      <label className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-2)] cursor-pointer select-none whitespace-nowrap">
-                        <input type="checkbox" checked={recOnlyPending} onChange={e => setRecOnlyPending(e.target.checked)} className="accent-[var(--accent)]" />
-                        sem realizado
-                      </label>
-                      {(isRecFilterActive || recOnlyPending) && (
-                        <button onClick={clearAll} className="text-[13px] text-[var(--accent)] font-medium whitespace-nowrap">↺ Limpar</button>
-                      )}
-                    </div>
+                    )}
+                    {/* Filters */}
+                    <select value={recFilter.person} onChange={e => setRecFilter(f => ({ ...f, person: e.target.value }))}
+                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
+                      <option value="">Todas as pessoas</option>
+                      {recPeople.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <select value={recFilter.project} onChange={e => setRecFilter(f => ({ ...f, project: e.target.value }))}
+                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
+                      <option value="">Todos os projetos</option>
+                      {recProjects.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <select value={recFilter.cc} onChange={e => setRecFilter(f => ({ ...f, cc: e.target.value }))}
+                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
+                      <option value="">Todos os CCs</option>
+                      {recCcs.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
+                      placeholder="Buscar…"
+                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] w-32" />
+                    <label className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--text-2)] cursor-pointer select-none whitespace-nowrap">
+                      <input type="checkbox" checked={recOnlyPending} onChange={e => setRecOnlyPending(e.target.checked)} className="accent-[var(--accent)]" />
+                      sem realizado
+                    </label>
+                    {(isRecFilterActive || recOnlyPending) && (
+                      <button onClick={clearAll} className="text-[12.5px] text-[var(--accent)] font-medium whitespace-nowrap">↺ Limpar</button>
+                    )}
+                    <span className="ml-auto text-[12px] text-[var(--text-3)] tabular-nums whitespace-nowrap">
+                      {visibleRows.length} registro{visibleRows.length !== 1 ? 's' : ''}
+                    </span>
                   </div>
+
+                  {/* Table */}
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[640px]">
                       <thead>
                         <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]">
-                          <th className="px-3 py-2 w-8">
+                          <th className={`${pendingTh} w-9 pl-4`}>
                             <input type="checkbox"
                               checked={allEligibleSelected}
                               disabled={eligibleRows.length === 0}
                               onChange={toggleAll}
-                              className="accent-[var(--accent)] cursor-pointer disabled:opacity-30"
-                              title="Selecionar todos sem realizado" />
+                              aria-label="Selecionar todos sem realizado"
+                              className="accent-[var(--accent)] cursor-pointer disabled:opacity-30" />
                           </th>
-                          {[{k:"ISO_Week",label:"Sem."},{k:"Person",label:"Pessoa"},{k:"Project",label:"Projeto"},{k:"Business_Unit",label:"CC"},{k:"Hours_Forecast",label:"Prev."},{k:"Hours_Consolidated",label:"Real."},{k:"_desvio",label:"Desvio"}].map(col => (
-                            <th key={col.k} className={th}>
+                          {[{k:"ISO_Week",label:"Sem."},{k:"Person",label:"Pessoa"},{k:"Project",label:"Projeto"},{k:"Business_Unit",label:"CC"},{k:"Hours_Forecast",label:"Prev.",right:true},{k:"Hours_Consolidated",label:"Real.",right:true},{k:"_desvio",label:"Desvio",right:true}].map(col => (
+                            <th key={col.k} className={`${pendingTh} ${col.right ? 'text-right' : ''}`} scope="col">
                               {col.k === "_desvio" ? col.label : (
-                                <button onClick={() => toggleSort(col.k)} className="flex items-center gap-1 hover:text-black dark:hover:text-white transition-colors">
+                                <button onClick={() => toggleSort(col.k)} className="flex items-center gap-1 hover:text-[var(--text-1)] transition-colors">
                                   {col.label}
                                   {previewSort.field === col.k && <span className="text-[var(--accent)]">{previewSort.dir === "asc" ? "↑" : "↓"}</span>}
                                 </button>
                               )}
                             </th>
                           ))}
-                          <th />
+                          <th className={`${pendingTh} w-20`} />
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[var(--border-subtle)]">
+                      <tbody>
                         {visibleRows.map(r => {
                           const eligible = Number(r.Hours_Forecast) > 0 && r.Hours_Consolidated == null;
+                          const isPending = eligible; // sem realizadas mas com previstas
                           return (
-                          <tr key={r.ID} className={`group hover:bg-[var(--surface-alt)] transition-colors ${recSelected.has(r.ID) ? 'bg-[var(--accent-soft)]' : ''}`}>
-                            <>
-                              <td className="px-3 py-2 w-8">
-                                <input type="checkbox"
-                                  checked={recSelected.has(r.ID)}
-                                  disabled={!eligible}
-                                  onChange={() => toggleRow(r.ID)}
-                                  className="accent-[var(--accent)] cursor-pointer disabled:opacity-20" />
-                              </td>
-                              <td className={`${td} tabular-nums text-[var(--text-3)] text-[13px]`}>W{toTwo(r.ISO_Week)}</td>
-                              <td className={`${td} font-medium`}>{r.Person}</td>
-                              <td className={td}>{r.Project}</td>
-                              <td className={td}><span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">{r.Business_Unit}</span></td>
-                              <td className={`${td} text-center tabular-nums`}>{r.Hours_Forecast ?? "—"}</td>
-                              <td className={`${td} text-center tabular-nums`}>{r.Hours_Consolidated != null ? r.Hours_Consolidated : <span className="text-[var(--text-3)]">—</span>}</td>
-                              <td className={`${td} text-center`}>{r.Hours_Consolidated != null ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} /> : <span className="text-[var(--text-3)]">—</span>}</td>
-                              <td className={td}><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <tr key={r.ID}
+                            className={`group border-b border-[var(--border-subtle)] transition-colors
+                              ${recSelected.has(r.ID) ? 'bg-[var(--accent-soft)]'
+                              : isPending ? 'bg-[var(--warning-soft)]/30 hover:bg-[var(--warning-soft)]/50'
+                              : 'hover:bg-[var(--surface-alt)]'}`}>
+                            <td className={`${recTd} w-9 pl-4`}>
+                              <input type="checkbox"
+                                checked={recSelected.has(r.ID)}
+                                disabled={!eligible}
+                                onChange={() => toggleRow(r.ID)}
+                                aria-label={`Selecionar ${r.Person} — ${r.Project}`}
+                                className="accent-[var(--accent)] cursor-pointer disabled:opacity-20" />
+                            </td>
+                            <td className={`${recTd} tabular-nums text-[var(--text-3)]`}>W{toTwo(r.ISO_Week)}</td>
+                            <td className={`${recTd} font-medium`}>
+                              {r.Person}
+                              {isPending && <span className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--warning)] ml-1.5 translate-y-[-1px]" title="Realizadas pendentes" />}
+                            </td>
+                            <td className={recTd}>{r.Project}</td>
+                            <td className={recTd}><span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">{r.Business_Unit}</span></td>
+                            <td className={`${recTd} text-right tabular-nums`}>{r.Hours_Forecast ?? "—"}</td>
+                            <td className={`${recTd} text-right tabular-nums font-semibold ${r.Hours_Consolidated != null ? 'text-[var(--positive-text)]' : 'text-[var(--text-3)]'}`}>
+                              {r.Hours_Consolidated != null ? `${r.Hours_Consolidated}h` : '—'}
+                            </td>
+                            <td className={`${recTd} text-right`}>
+                              {r.Hours_Consolidated != null ? <Desvio forecast={r.Hours_Forecast} consolidated={r.Hours_Consolidated} /> : <span className="text-[var(--text-3)]">—</span>}
+                            </td>
+                            <td className={`${recTd} pr-3`}>
+                              <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 {eligible && (
-                                  <button
-                                    title={`Replicar ${r.Hours_Forecast}h previsto para realizado`}
+                                  <button title={`Replicar ${r.Hours_Forecast}h → realizado`}
                                     onClick={async () => {
                                       const updated = { ...r, Hours_Consolidated: Number(r.Hours_Forecast) };
                                       try {
@@ -1953,41 +1961,49 @@ export default function AlocacoesApp() {
                                         showToast("Realizado replicado.");
                                       } catch { showToast("Erro ao replicar."); }
                                     }}
-                                    className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">↺</button>
+                                    className="w-7 h-7 flex items-center justify-center rounded-[6px] text-[var(--text-3)] hover:text-[var(--info)] hover:bg-[var(--info-soft)] text-[13px] transition-colors">↺</button>
                                 )}
-                                <button onClick={() => startEditRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--accent)] hover:bg-[var(--accent-soft)] text-[13px]">✏</button>
-                                <button onClick={() => deleteDbRow(r)} className="px-2 py-1 rounded-[6px] text-[var(--negative)] hover:bg-[var(--negative)]/10 text-[13px]">×</button>
-                              </div></td>
-                            </>
+                                <button onClick={() => startEditRow(r)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-[6px] text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] text-[12px] transition-colors">✎</button>
+                                <button onClick={() => deleteDbRow(r)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-[6px] text-[var(--text-3)] hover:text-[var(--negative)] hover:bg-[var(--negative-soft)] text-[13px] transition-colors">×</button>
+                              </div>
+                            </td>
                           </tr>
                           );
                         })}
-                        {!visibleRows.length && <tr><td colSpan={9} className="py-12 text-center text-[15px] text-[var(--text-3)]">{db.length === 0 ? 'Use "Carregar Semana" ou "Carregar Ano".' : "Nenhum resultado para o filtro."}</td></tr>}
+                        {!visibleRows.length && (
+                          <tr><td colSpan={9} className="py-14 text-center text-[14px] text-[var(--text-3)]">
+                            {db.length === 0 ? 'Abra o Painel e carregue os dados primeiro.' : "Nenhum resultado para o filtro aplicado."}
+                          </td></tr>
+                        )}
                       </tbody>
                       {visibleRows.length > 0 && (
                         <tfoot>
-                          <tr className="border-t-2 border-[var(--border-subtle)] bg-[var(--surface-alt)]/50">
-                            <td colSpan={5} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]">
+                          <tr className="border-t border-[var(--border-strong)] bg-[var(--surface-alt)]">
+                            <td colSpan={5} className="px-3 py-2.5 pl-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3)]">
                               Total · {visibleRows.length} registro{visibleRows.length !== 1 ? 's' : ''}
                             </td>
-                            <td className="px-3 py-2 text-center tabular-nums font-semibold text-[var(--text-1)]">{totalF > 0 ? `${totalF}h` : '—'}</td>
-                            <td className="px-3 py-2 text-center tabular-nums font-semibold text-[var(--text-1)]">{totalC > 0 ? `${totalC}h` : '—'}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-[var(--text-1)]">{totalF > 0 ? `${totalF}h` : '—'}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-[var(--positive-text)]">{totalC > 0 ? `${totalC}h` : '—'}</td>
                             <td colSpan={2} />
                           </tr>
                         </tfoot>
                       )}
                     </table>
                   </div>
+
                   {/* Barra de ação flutuante */}
                   {recSelected.size > 0 && createPortal(
-                    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[10001] flex items-center gap-3 bg-[var(--text-1)] text-[var(--canvas)] px-5 py-3 rounded-xl shadow-2xl">
-                      <span className="text-[14px] font-medium">{recSelected.size} selecionado{recSelected.size !== 1 ? 's' : ''}</span>
+                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10001] flex items-center gap-3 bg-[var(--text-1)] px-5 py-3 rounded-full shadow-2xl whitespace-nowrap">
+                      <span className="inline-flex items-center justify-center bg-[var(--accent)] text-[var(--accent-fg)] rounded-full px-2.5 py-0.5 text-[12px] font-semibold tabular-nums min-w-[24px]">{recSelected.size}</span>
+                      <span className="text-[13px] font-medium text-[var(--canvas)]">selecionado{recSelected.size !== 1 ? 's' : ''}</span>
                       <button onClick={handleBulkReplicate}
-                        className="px-4 py-1.5 rounded-lg bg-[var(--accent)] text-white text-[13.5px] font-semibold hover:opacity-90 transition-opacity">
+                        className="px-3 py-1.5 rounded-full bg-white/12 text-[var(--canvas)] text-[12.5px] font-medium hover:bg-white/20 transition-colors">
                         ↺ Replicar realizadas
                       </button>
                       <button onClick={() => setRecSelected(new Set())}
-                        className="opacity-60 hover:opacity-100 text-[20px] leading-none transition-opacity">×</button>
+                        className="text-[var(--canvas)]/60 hover:text-[var(--canvas)] text-[18px] leading-none transition-colors">×</button>
                     </div>,
                     document.body
                   )}
