@@ -240,8 +240,10 @@ export async function upsertConsolidated(rows) {
 
 export async function deleteRow(row) {
   const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
-  const taskId = taskIdCache.get(name) || row._taskId || await resolveTaskId(name);
+  // Prefere _taskId do objeto (identifica a instância exata) — evita usar cache
+  // que pode apontar para uma duplicata já deletada.
+  const taskId = row._taskId || taskIdCache.get(name) || await resolveTaskId(name);
   if (!taskId) throw new Error(`Task não encontrada para remoção: ${name}`);
   await cuFetch(`/task/${taskId}`, { method: 'DELETE' });
-  taskIdCache.delete(name);
+  if (taskIdCache.get(name) === taskId) taskIdCache.delete(name);
 }

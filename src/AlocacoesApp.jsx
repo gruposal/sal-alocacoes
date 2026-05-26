@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { format, getISOWeek, startOfISOWeek, endOfISOWeek, setISOWeek, setYear } from "date-fns";
 import Dashboard from "./Dashboard.jsx";
 import Directory from "./Directory.jsx";
-import { loadForWeek, loadLastYear, upsertForecast, upsertConsolidated, deleteRow as cuDeleteRow } from "./lib/clickup/entries.js";
+import { loadForWeek, loadLastYear, upsertForecast, upsertConsolidated, deleteRow as cuDeleteRow, makeTaskName } from "./lib/clickup/entries.js";
 import { people as cuPeople, projects as cuProjects } from "./lib/clickup/lists.js";
 import { CENTRO_DE_CUSTO_OPTIONS, ccColor } from "./lib/clickup/fields.js";
 import "./lib/hoursLogic.js"; // side-effect: roda self-tests no load
@@ -272,25 +272,27 @@ function WeekNav({ year, week, start, end, onPrev, onNext, onToday }) {
   const t = new Date();
   const isCurrent = getISOWeek(t) === week && t.getFullYear() === year;
   return (
-    <div className="inline-flex items-center gap-2">
-      <div className="inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-[var(--surface-alt)] border border-[var(--border-subtle)]" style={{ width: 360 }}>
+    <div className="flex items-center gap-2 w-full sm:w-auto">
+      <div className="flex flex-1 sm:flex-none sm:w-[360px] items-center gap-0.5 rounded-lg p-0.5 bg-[var(--surface-alt)] border border-[var(--border-subtle)] min-w-0">
         <button onClick={onPrev} aria-label="Semana anterior"
-          className="w-8 h-8 shrink-0 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
+          className="w-10 h-10 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
           ‹
         </button>
-        <span className="flex-1 text-center tabular-nums whitespace-nowrap text-[15px]">
+        <span className="flex-1 text-center tabular-nums whitespace-nowrap text-[14px] sm:text-[15px] overflow-hidden">
           <span className="font-semibold text-[var(--text-1)]">Semana {toTwo(week)}</span>
-          <span className="text-[var(--text-3)] mx-1.5">·</span>
-          <span className="text-[var(--text-2)]">{formatWeekRangePt(start, end)}</span>
+          <span className="hidden sm:inline text-[var(--text-2)]">
+            <span className="text-[var(--text-3)] mx-1.5">·</span>
+            {formatWeekRangePt(start, end)}
+          </span>
         </span>
         <button onClick={onNext} aria-label="Próxima semana"
-          className="w-8 h-8 shrink-0 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
+          className="w-10 h-10 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center rounded-md hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)] text-[18px] leading-none transition-colors">
           ›
         </button>
       </div>
       {!isCurrent && (
         <button onClick={onToday}
-          className="px-3 py-1.5 rounded-md text-[13px] font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+          className="shrink-0 px-3 py-1.5 rounded-md text-[13px] font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
           ↺ Hoje
         </button>
       )}
@@ -365,9 +367,9 @@ function HoursInput({ value, onChange, placeholder = '0', className = '', min = 
         onChange={e => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className={`${className} pr-6`}
+        className={`${className} sm:pr-6`}
       />
-      <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex flex-col opacity-60 hover:opacity-100 transition-opacity">
+      <div className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 flex-col opacity-60 hover:opacity-100 transition-opacity">
         <button
           type="button" tabIndex={-1}
           onMouseDown={press(+step)}
@@ -417,7 +419,7 @@ function TopProgressBar({ visible, label }) {
         <div className="h-full w-1/3 bg-[var(--accent)] tp-indeterminate" />
       </div>
       {label && (
-        <div className="absolute right-3 top-1.5 text-[10.5px] text-[var(--text-2)] bg-[var(--surface)]/95 backdrop-blur px-2 py-0.5 rounded-md border border-[var(--border-subtle)] shadow-sm pointer-events-none">
+        <div className="hidden sm:block absolute right-3 top-1.5 text-[10.5px] text-[var(--text-2)] bg-[var(--surface)]/95 backdrop-blur px-2 py-0.5 rounded-md border border-[var(--border-subtle)] shadow-sm pointer-events-none">
           {label}
         </div>
       )}
@@ -516,7 +518,7 @@ function PersonWeekModal({ personName, week, year, db, people, projects, bus, in
                   const co = r.Hours_Consolidated != null ? Number(r.Hours_Consolidated) : null;
                   const d = co != null ? co - fc : null;
                   return (
-                    <tr key={r.ID} className="group hover:bg-[var(--surface-alt)] transition-colors">
+                    <tr key={r._taskId || r.ID} className="group hover:bg-[var(--surface-alt)] transition-colors">
                       <td className={`${td} font-medium`}>{r.Project}</td>
                       <td className={td}><span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-alt)] text-[var(--text-3)]">{r.Business_Unit}</span></td>
                       <td className={`${td} text-right tabular-nums`}>{fc}h</td>
@@ -686,6 +688,7 @@ export default function AlocacoesApp() {
   // Permite auto-preencher Centro de Custo ao selecionar projeto.
   const [projectToCc, setProjectToCc]       = useState(() => _ccData || {});
   const [saving, setSaving]                 = useState(false);
+  const savingRef                           = useRef(false); // guard síncrono contra double-click
   const [loadingWeek, setLoadingWeek]       = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false); // carga em background do ano (para mapa CC)
   // Indica o que está em `db` agora: 'empty', 'year-2026', 'week-2026-W14' etc.
@@ -856,6 +859,14 @@ export default function AlocacoesApp() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Substitui as rows da semana/ano no db sem clobberar outras semanas.
+  function mergeWeekIntoDb(year, week, rows) {
+    setDb(prev => {
+      const without = prev.filter(r => !(r.Year === year && r.ISO_Week === week));
+      return [...without, ...rows];
+    });
+  }
 
   // Constrói/atualiza o mapa project → CC a partir das entries carregadas.
   // Para cada projeto, escolhe o CC mais frequente no histórico (vota por contagem).
@@ -1109,6 +1120,7 @@ export default function AlocacoesApp() {
   }
 
   async function saveProjetoRows() {
+    if (savingRef.current) return;
     if (!projetoProject) { showToast("Selecione um projeto."); return; }
     const valid = projetoRows.filter(r => r.person && (Number(r.hours_forecast) > 0 || Number(r.hours_consolidated) > 0));
     if (!valid.length) { showToast("Preencha pelo menos uma pessoa com horas."); return; }
@@ -1118,15 +1130,21 @@ export default function AlocacoesApp() {
       Hours_Forecast:     Number(r.hours_forecast)     || null,
       Hours_Consolidated: Number(r.hours_consolidated) || null,
     });
+    savingRef.current = true;
     try {
       setSaving(true);
-      const forecastRows     = valid.filter(r => Number(r.hours_forecast) > 0).map(mkRow);
-      const consolidatedRows = valid.filter(r => Number(r.hours_consolidated) > 0).map(mkRow);
+      const allRows = valid.map(mkRow);
+      const forecastRows     = allRows.filter(r => r.Hours_Forecast != null && r.Hours_Forecast > 0);
+      const consolidatedRows = allRows.filter(r => r.Hours_Consolidated != null && r.Hours_Consolidated > 0);
       if (forecastRows.length)     await upsertForecast(forecastRows);
       if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
+      // Atualiza db imediatamente sem esperar refresh — Painel reflete na hora
+      mergeWeekIntoDb(selectedYear, selectedWeek, allRows.map(r => ({
+        ...r, ID: makeTaskName(r.Year, r.ISO_Week, r.Person, r.Project),
+      })));
       showToast(`Salvo — ${valid.length} pessoa${valid.length > 1 ? "s" : ""}.`);
     } catch (e) { console.warn(e); showToast("Erro ao salvar."); }
-    finally { setSaving(false); }
+    finally { savingRef.current = false; setSaving(false); }
   }
 
 
@@ -1148,11 +1166,13 @@ export default function AlocacoesApp() {
   async function refreshYear() {
     try {
       setLoadingHistory(true);
-      const rows = await loadLastYear(selectedYear);
+      const rows = await loadLastYear(selectedYear, {
+        onProgress: n => showToast(`Atualizando… ${n} registros`),
+      });
       mergeRowsIntoCcMap(rows);
       setDb(rows);
       setDbScope(`year-${selectedYear}`);
-      showToast("Painel atualizado.");
+      showToast(`Painel atualizado — ${rows.length} registros.`);
     } catch (e) { console.warn(e); showToast("Erro ao atualizar painel."); }
     finally { setLoadingHistory(false); }
   }
@@ -1162,7 +1182,15 @@ export default function AlocacoesApp() {
       `Remover "${row.Person} — ${row.Project}" (W${String(row.ISO_Week).padStart(2,'0')})?`,
       async () => {
         closeConfirm();
-        try { await cuDeleteRow(row); setDb(p => p.filter(r => r.ID !== row.ID)); showToast("Removido."); }
+        try {
+          await cuDeleteRow(row);
+          // Filtra pela instância exata (_taskId) — não por ID que é igual em duplicatas
+          setDb(p => row._taskId
+            ? p.filter(r => r._taskId !== row._taskId)
+            : p.filter(r => r.ID !== row.ID)
+          );
+          showToast("Removido.");
+        }
         catch (e) { console.warn(e); showToast("Erro ao remover."); }
       },
       "Excluir registro"
@@ -1170,6 +1198,7 @@ export default function AlocacoesApp() {
   }
 
   async function saveAlocacoes() {
+    if (savingRef.current) return;
     const allRows = planGroups.flatMap(g =>
       g.rows
         .filter(r => g.person && r.project && (Number(r.hours_forecast) > 0 || Number(r.hours_consolidated) > 0))
@@ -1181,15 +1210,20 @@ export default function AlocacoesApp() {
         }))
     );
     if (!allRows.length) { showToast("Preencha pessoa, projeto e horas em pelo menos uma linha."); return; }
+    savingRef.current = true;
     try {
       setSaving(true);
       const forecastRows     = allRows.filter(r => r.Hours_Forecast != null);
       const consolidatedRows = allRows.filter(r => r.Hours_Consolidated != null);
       if (forecastRows.length)     await upsertForecast(forecastRows);
       if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
+      // Atualiza db imediatamente sem esperar refresh — Painel reflete na hora
+      mergeWeekIntoDb(selectedYear, selectedWeek, allRows.map(r => ({
+        ...r, ID: makeTaskName(r.Year, r.ISO_Week, r.Person, r.Project),
+      })));
       showToast(`Salvo — ${allRows.length} linha${allRows.length > 1 ? "s" : ""}.`);
     } catch (e) { console.warn(e); showToast("Erro ao salvar."); }
-    finally { setSaving(false); }
+    finally { savingRef.current = false; setSaving(false); }
   }
 
   function startEditRow(row)   { setEditingId(row.ID); setEditingValues({ ...row }); }
@@ -1277,7 +1311,7 @@ export default function AlocacoesApp() {
   // ─── Editorial design tokens (warm off-white + serif display) ────────────
   const bg        = "min-h-screen bg-[var(--canvas)] text-[var(--text-1)]";
   const card      = "bg-[var(--surface)] rounded-[18px] border border-[var(--border-subtle)]";
-  const inputCls  = "rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors w-full";
+  const inputCls  = "rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-2.5 sm:py-1.5 text-[14px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors w-full min-h-[44px] sm:min-h-0";
   const btnBlue   = "inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-full bg-[var(--accent)] text-[var(--accent-fg)] text-[14px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--accent-hover)]";
   const btnGhost  = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-[var(--border-subtle)] bg-transparent text-[var(--text-1)] text-[13px] font-medium disabled:opacity-40 transition-colors hover:bg-[var(--surface-alt)] hover:border-[var(--border-strong)]";
   const th        = "px-3 py-2 text-left text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] whitespace-nowrap";
@@ -1285,9 +1319,24 @@ export default function AlocacoesApp() {
   const sep       = "divide-y divide-[var(--border-subtle)]";
 
   const TABS = [
-    { k: "alocacoes",  label: "Horas",   icon: "⏱" },
-    { k: "projeto",    label: "Projeto", icon: "🗂" },
-    { k: "dashboard",  label: "Painel",  icon: "📊" },
+    { k: "alocacoes",  label: "Horas",   icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="M11 7v4.5l3 2.5"/>
+      </svg>
+    )},
+    { k: "projeto",    label: "Projeto", icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 8a2 2 0 012-2h3.5l2 2H17a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+      </svg>
+    )},
+    { k: "dashboard",  label: "Painel",  icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="12" width="4" height="7" rx="1"/>
+        <rect x="9" y="7" width="4" height="12" rx="1"/>
+        <rect x="15" y="3" width="4" height="16" rx="1"/>
+      </svg>
+    )},
   ];
 
   const loadingLabel = saving ? 'Salvando…'
@@ -1349,10 +1398,20 @@ export default function AlocacoesApp() {
               <h1 className="font-display-italic text-[28px] tracking-[-0.02em] text-[var(--text-1)]">
                 Horas
               </h1>
-              <WeekNav
-                year={selectedYear} week={selectedWeek} start={start} end={end}
-                onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
-              />
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <WeekNav
+                    year={selectedYear} week={selectedWeek} start={start} end={end}
+                    onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
+                  />
+                </div>
+                <button
+                  onClick={() => planGroups.forEach(g => { if (g.person) loadPlanRowsForGroup(g.id, g.person, selectedYear, selectedWeek); })}
+                  disabled={!planGroups.some(g => g.person) || loadingWeek}
+                  className="shrink-0 text-[12.5px] text-[var(--text-2)] hover:text-[var(--accent)] disabled:opacity-40 transition-colors">
+                  {loadingWeek ? "Atualizando…" : "↻ Atualizar"}
+                </button>
+              </div>
             </header>
 
             {/* KPI strip */}
@@ -1450,7 +1509,7 @@ export default function AlocacoesApp() {
                                 />
                               </div>
                               <button onClick={() => removePlanRow(g.id, r.id)}
-                                className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[16px] leading-none shrink-0">
+                                className="w-11 h-11 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[18px] leading-none shrink-0">
                                 ×
                               </button>
                             </div>
@@ -1603,14 +1662,16 @@ export default function AlocacoesApp() {
               <h1 className="font-display-italic text-[28px] tracking-[-0.02em] text-[var(--text-1)]">
                 Projeto
               </h1>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <WeekNav
-                  year={selectedYear} week={selectedWeek} start={start} end={end}
-                  onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
-                />
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <WeekNav
+                    year={selectedYear} week={selectedWeek} start={start} end={end}
+                    onPrev={prevWeek} onNext={nextWeek} onToday={goToToday}
+                  />
+                </div>
                 <button onClick={() => projetoProject && loadProjetoRows(projetoProject, selectedYear, selectedWeek)}
                   disabled={!projetoProject || loadingWeek}
-                  className="text-[12.5px] text-[var(--text-2)] hover:text-[var(--accent)] disabled:opacity-40 transition-colors">
+                  className="shrink-0 text-[12.5px] text-[var(--text-2)] hover:text-[var(--accent)] disabled:opacity-40 transition-colors">
                   {loadingWeek ? "Atualizando…" : "↻ Atualizar"}
                 </button>
               </div>
@@ -1675,7 +1736,7 @@ export default function AlocacoesApp() {
                         />
                       </div>
                       <button onClick={() => setProjetoRows(p => p.filter(x => x.id !== r.id))}
-                        className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[16px] leading-none shrink-0">
+                        className="w-11 h-11 flex items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--negative)]/10 hover:text-[var(--negative)] text-[18px] leading-none shrink-0">
                         ×
                       </button>
                     </div>
@@ -1962,7 +2023,7 @@ export default function AlocacoesApp() {
                           const eligible = Number(r.Hours_Forecast) > 0 && r.Hours_Consolidated == null;
                           const isPending = eligible; // sem realizadas mas com previstas
                           return (
-                          <tr key={r.ID}
+                          <tr key={r._taskId || r.ID}
                             className={`group border-b border-[var(--border-subtle)] transition-colors
                               ${recSelected.has(r.ID) ? 'bg-[var(--accent-soft)]'
                               : isPending ? 'bg-[var(--warning-soft)]/30 hover:bg-[var(--warning-soft)]/50'
@@ -2137,13 +2198,13 @@ export default function AlocacoesApp() {
       )}
 
       {/* ── Bottom nav — mobile only ── */}
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-[var(--surface)]/95 backdrop-blur-md border-t border-[var(--border-subtle)] flex">
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-[var(--surface)]/95 backdrop-blur-md border-t border-[var(--border-subtle)] flex" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {TABS.map(t => (
           <button key={t.k} onClick={() => setView(t.k)}
-            className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors ${
+            className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-1 text-[10px] font-semibold tracking-wide transition-colors ${
               view === t.k ? "text-[var(--accent)]" : "text-[var(--text-3)]"
             }`}>
-            <span className="text-[22px] leading-none">{t.icon}</span>
+            <span className="leading-none">{t.icon}</span>
             {t.label}
           </button>
         ))}
