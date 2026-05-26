@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 
-const card  = "bg-[var(--surface)] rounded-xl border border-[var(--border-subtle)]";
-const th    = "px-3 py-2 text-left text-[10.5px] font-semibold text-[var(--text-3)] uppercase tracking-[0.06em] whitespace-nowrap";
+const card  = "bg-[var(--surface)] rounded-[18px] border border-[var(--border-subtle)]";
+const th    = "px-3 py-2 text-left text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] whitespace-nowrap";
 const td    = "px-3 py-2 text-[14px]";
 
 // ─── DesvioCell ──────────────────────────────────────────────────────────────
@@ -52,10 +52,10 @@ function AlertCard({ title, items, emptyMsg }) {
 
 // ─── Vertical Bar Chart ───────────────────────────────────────────────────────
 const PALETTE = [
-  '#7B68EE','#3B82F6','#10B981','#F59E0B','#EC4899',
-  '#8B5CF6','#06B6D4','#84CC16','#F97316','#14B8A6',
-  '#A855F7','#0EA5E9','#22C55E','#EAB308','#EF4444',
-  '#6366F1','#0284C7','#65A30D','#D97706','#DC2626',
+  '#e8614a','#0071e3','#34c759','#ff9500','#af52de',
+  '#ff6961','#5ac8fa','#ffcc00','#ff6b35','#32ade6',
+  '#4cd964','#ff3b30','#007aff','#ff9f0a','#bf5af2',
+  '#30d158','#ffd60a','#e8614a99','#5e5ce6','#64d2ff',
 ];
 
 function VerticalBars({ title, badge, data, formatValue = v => v.toLocaleString('pt-BR') + 'h', maxItems = 20 }) {
@@ -155,7 +155,7 @@ function WeeklyBarsConsolidated({ rows }) {
           <div className="pointer-events-none fixed z-50 px-3 py-2 rounded-lg shadow-lg border border-[var(--border-subtle)] bg-[var(--surface)] text-[13px]"
             style={{ left: tooltip.x, top: tooltip.y, transform: 'translate(-50%, -110%)' }}>
             <div className="font-semibold text-[var(--text-1)]">W{String(tooltip.w).padStart(2,'0')}</div>
-            <div className="tabular-nums text-[var(--positive)] font-bold text-[15px]">{tooltip.v}h</div>
+            <div className="tabular-nums text-[var(--accent)] font-bold text-[15px]">{tooltip.v}h</div>
           </div>
         )}
         <div className="flex items-end gap-2 min-h-[120px]" style={{ minWidth: weeks.length * 36 }}>
@@ -171,7 +171,7 @@ function WeeklyBarsConsolidated({ rows }) {
                 }}>
                 <span className={`text-[11px] tabular-nums transition-colors ${isActive ? 'text-[var(--text-1)] font-semibold' : 'text-[var(--text-3)]'}`}>{v || ''}</span>
                 <div className="w-full rounded-t transition-all duration-150"
-                  style={{ height: h, backgroundColor: 'var(--positive)', opacity: hoveredWeek && !isActive ? 0.3 : 0.85, transform: isActive ? 'scaleX(1.1)' : 'scaleX(1)' }} />
+                  style={{ height: h, backgroundColor: 'var(--accent)', opacity: hoveredWeek && !isActive ? 0.25 : 0.9, transform: isActive ? 'scaleX(1.08)' : 'scaleX(1)' }} />
                 <span className={`text-[11px] tabular-nums transition-colors ${isActive ? 'text-[var(--text-1)] font-semibold' : 'text-[var(--text-3)]'}`}>W{String(w).padStart(2,'0')}</span>
               </div>
             );
@@ -276,7 +276,7 @@ function groupBy(rows, key) {
     .sort((a, b) => b.forecast - a.forecast);
 }
 
-const selectCls = "w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[14px] text-[var(--text-1)] focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent)]/15 transition-colors";
+const selectCls = "w-full rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] transition-colors";
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Dashboard({ db, projectMeta = {}, people = [], person = "", selectedWeek, selectedYear, recordsContent, onRefresh, loadingHistory, onPersonCardClick }) {
@@ -841,40 +841,55 @@ export default function Dashboard({ db, projectMeta = {}, people = [], person = 
             </div>
           </div>
 
-          {/* KPIs do período */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard label="Total Previstas"  value={panKpis.totalF + 'h'}  color="text-[var(--accent)]"    accent="var(--accent)" />
-            <KpiCard label="Total Realizadas" value={panKpis.totalC > 0 ? panKpis.totalC + 'h' : '—'} color="text-[var(--positive)]" accent="var(--positive)" />
-            <KpiCard label="Projetos"         value={panKpis.projetos.toString()} color="text-[var(--warning)]"   accent="var(--warning)" />
-            <KpiCard label="Colaboradores"    value={panKpis.pessoas.toString()}  color="text-[var(--accent)]"    accent="var(--accent)" />
+          {/* KPI strip unificado */}
+          <div className={`grid grid-cols-2 lg:grid-cols-4 overflow-hidden ${card}`}>
+            <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+              <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Total Previstas</div>
+              <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--accent)]">{panKpis.totalF}<span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">h</span></div>
+            </div>
+            <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+              <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Total Realizadas</div>
+              <div className={`font-display text-[36px] tracking-[-0.02em] leading-none ${panKpis.totalC > 0 ? 'text-[var(--positive)]' : 'text-[var(--text-3)]'}`}>
+                {panKpis.totalC > 0 ? panKpis.totalC : '—'}
+                {panKpis.totalC > 0 && <span className="font-sans text-[15px] text-[var(--text-3)] font-normal ml-1">h</span>}
+              </div>
+            </div>
+            <div className="px-5 py-4 border-r border-[var(--border-subtle)]">
+              <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Projetos</div>
+              <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--text-1)]">{panKpis.projetos}</div>
+            </div>
+            <div className="px-5 py-4">
+              <div className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] mb-2">Colaboradores</div>
+              <div className="font-display text-[36px] tracking-[-0.02em] leading-none text-[var(--text-1)]">{panKpis.pessoas}</div>
+            </div>
           </div>
 
           {/* Evolução semanal */}
           <WeeklyBarsConsolidated rows={panoramaRows} />
 
           {/* Por Projeto */}
-          <VerticalBars title="Horas Realizadas por Projeto" badge="realizado" data={realizadasPorProjeto} maxItems={20} />
+          <VerticalBars title="Horas por Projeto" data={realizadasPorProjeto} maxItems={20} />
 
           {/* Por CC */}
-          <VerticalBars title="Horas Realizadas por Centro de Custo" badge="realizado" data={realizadasPorCC} maxItems={20} />
+          <VerticalBars title="Horas por Centro de Custo" data={realizadasPorCC} maxItems={20} />
 
           {/* Por Cliente */}
-          <VerticalBars title="Horas Realizadas por Cliente" badge="realizado" data={realizadasPorCliente} maxItems={20} />
+          <VerticalBars title="Horas por Cliente" data={realizadasPorCliente} maxItems={20} />
 
           {/* Heatmap */}
           <div className={card}>
             <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-3">
               <h3 className="font-semibold text-[15px]">Detalhamento Projeto × Semana</h3>
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="inline-flex bg-[var(--surface-alt)] rounded-md p-0.5 gap-0.5 border border-[var(--border-subtle)]">
+                <div className="inline-flex bg-[var(--surface-alt)] rounded-full p-[3px] gap-[2px]">
                   {[{k:'forecast',label:'Previsto'},{k:'consolidated',label:'Realizado'},{k:'desvio',label:'Desvio'}].map(o => (
                     <button key={o.k} onClick={() => setHmMode(o.k)}
-                      className={`px-3 py-1 rounded-[7px] text-[12px] font-medium transition-all ${hmMode===o.k ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-2)]'}`}>
+                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all ${hmMode===o.k ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-2)] hover:text-[var(--text-1)]'}`}>
                       {o.label}
                     </button>
                   ))}
                 </div>
-                <select value={hmSort} onChange={e => setHmSort(e.target.value)} className="text-[12px] rounded-[9px] border border-[var(--border-subtle)] bg-[var(--surface-alt)] px-2 py-1">
+                <select value={hmSort} onChange={e => setHmSort(e.target.value)} className="text-[12px] rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-alt)] px-2 py-1">
                   <option value="total">Sort: Total</option>
                   <option value="recente">Sort: Recente</option>
                   <option value="name">Sort: Nome</option>
