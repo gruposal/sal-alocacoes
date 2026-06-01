@@ -695,12 +695,15 @@ export default function AlocacoesApp() {
   // Permite saber se o Dashboard precisa recarregar ou pode reusar.
   const [dbScope, setDbScope] = useState(() => _dbRows?.length ? `year-${_yrInit}` : 'empty');
   const [previewSort, setPreviewSort]       = useState({ field: "ISO_Week", dir: "desc" });
-  const [previewWeek, setPreviewWeek]       = useState(null); // null = semana mais recente
+  const [recPageSize, setRecPageSize]       = useState(100);
+  const [recPage, setRecPage]               = useState(0);
   const [editingId, setEditingId]           = useState(null);
   const [editingValues, setEditingValues]   = useState(null);
   const [confirmDlg, setConfirmDlg]         = useState({ open: false, title: '', message: '', onConfirm: null });
   const [personModal, setPersonModal]       = useState(null); // null | nome da pessoa
   const [recFilter, setRecFilter]           = useState({ person: "", project: "", cc: "" });
+  const [recWeekFrom, setRecWeekFrom]       = useState("");
+  const [recWeekTo, setRecWeekTo]           = useState("");
   const [recOnlyPending, setRecOnlyPending] = useState(false);
   const [recSelected, setRecSelected]       = useState(new Set());
   const [view, setView]                     = useState(() => {
@@ -1243,7 +1246,7 @@ export default function AlocacoesApp() {
     finally { setSaving(false); }
   }
 
-  const isRecFilterActive = !!(dbFilter || recFilter.person || recFilter.project || recFilter.cc);
+  const isRecFilterActive = !!(dbFilter || recFilter.person || recFilter.project || recFilter.cc || recWeekFrom || recWeekTo);
 
   // Registros filtrados pelos filtros estruturados + texto (com normalização de acentos)
   const recFiltered = useMemo(() => {
@@ -1251,6 +1254,8 @@ export default function AlocacoesApp() {
     if (recFilter.person)  rows = rows.filter(r => r.Person === recFilter.person);
     if (recFilter.project) rows = rows.filter(r => r.Project === recFilter.project);
     if (recFilter.cc)      rows = rows.filter(r => r.Business_Unit === recFilter.cc);
+    if (recWeekFrom)       rows = rows.filter(r => r.ISO_Week >= Number(recWeekFrom));
+    if (recWeekTo)         rows = rows.filter(r => r.ISO_Week <= Number(recWeekTo));
     if (dbFilter) {
       const q = normalizeMatch(dbFilter);
       rows = rows.filter(r =>
@@ -1260,13 +1265,12 @@ export default function AlocacoesApp() {
       );
     }
     return rows;
-  }, [db, recFilter, dbFilter]);
+  }, [db, recFilter, recWeekFrom, recWeekTo, dbFilter]);
 
-  // Quando filtro ativo: usa recFiltered (todas as semanas). Senão: filtra só para semana ativa.
-  const filteredDb = isRecFilterActive ? recFiltered : (db || []);
+  const recAllWeeks = useMemo(() => [...new Set((db || []).map(r => r.ISO_Week).filter(Boolean))].sort((a, b) => a - b), [db]);
 
   const sortedDb = useMemo(() => {
-    const arr = [...(isRecFilterActive ? recFiltered : db || [])];
+    const arr = [...recFiltered];
     const { field, dir } = previewSort;
     arr.sort((a, b) => {
       const va = a[field], vb = b[field];
@@ -1276,20 +1280,11 @@ export default function AlocacoesApp() {
       return dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
     });
     return arr;
-  }, [recFiltered, db, isRecFilterActive, previewSort]);
+  }, [recFiltered, previewSort]);
 
-  const previewWeeks = useMemo(() => [...new Set((db || []).map(r => r.ISO_Week).filter(Boolean))].sort((a, b) => b - a), [db]);
-  const activeWeek   = previewWeek ?? previewWeeks[0] ?? null;
-  const weekIdx      = previewWeeks.indexOf(activeWeek);
-  // Quando filtro ativo: mostra todos os registros filtrados. Senão: só a semana ativa.
-  const pagedDb      = useMemo(() => isRecFilterActive ? recFiltered.slice().sort((a, b) => {
-    const { field, dir } = previewSort;
-    const va = a[field], vb = b[field];
-    if (va == null && vb == null) return 0;
-    if (va == null) return 1; if (vb == null) return -1;
-    if (typeof va === "number" && typeof vb === "number") return dir === "asc" ? va - vb : vb - va;
-    return dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
-  }) : sortedDb.filter(r => r.ISO_Week === activeWeek), [isRecFilterActive, recFiltered, sortedDb, activeWeek, previewSort]);
+  const pagedDb = useMemo(() =>
+    sortedDb.slice(recPage * recPageSize, (recPage + 1) * recPageSize),
+  [sortedDb, recPage, recPageSize]);
 
   const recPeople   = useMemo(() => [...new Set((db||[]).map(r=>r.Person).filter(Boolean))].sort(), [db]);
   const recProjects = useMemo(() => [...new Set((db||[]).map(r=>r.Project).filter(Boolean))].sort(), [db]);
@@ -1306,6 +1301,25 @@ export default function AlocacoesApp() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(people.map(p => ({ Pessoa: p }))), "Pessoas");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(projects.map(p => ({ Projeto: p }))), "Projetos");
     XLSX.writeFile(wb, `SAL-Alocacoes_${selectedYear}_${format(new Date(), "yyyyMMdd")}.xlsx`);
+  }
+
+  async function exportRegistros(rows) {
+    const XLSX = await import("xlsx");
+    const wb   = XLSX.utils.book_new();
+    const data = rows.map(r => ({
+      Semana:             `W${String(r.ISO_Week).padStart(2, "0")}`,
+      Pessoa:             r.Person ?? "",
+      Projeto:            r.Project ?? "",
+      "Centro de Custo":  r.Business_Unit ?? "",
+      Previstas:          r.Hours_Forecast ?? "",
+      Realizadas:         r.Hours_Consolidated ?? "",
+      Desvio:             r.Hours_Consolidated != null ? (r.Hours_Consolidated - (r.Hours_Forecast ?? 0)) : "",
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Registros");
+    const wf = recWeekFrom ? `W${String(recWeekFrom).padStart(2,"0")}` : "";
+    const wt = recWeekTo   ? `W${String(recWeekTo).padStart(2,"0")}` : "";
+    const range = wf && wt ? `_${wf}-${wt}` : wf ? `_${wf}+` : wt ? `_ate-${wt}` : `_${selectedYear}`;
+    XLSX.writeFile(wb, `SAL-Alocacoes${range}_${format(new Date(), "yyyyMMdd")}.xlsx`);
   }
 
   // ─── Editorial design tokens (warm off-white + serif display) ────────────
@@ -1941,54 +1955,59 @@ export default function AlocacoesApp() {
                     setRecSelected(new Set());
                   } catch { showToast("Erro ao replicar."); }
                 };
-                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setDbFilter(""); setPreviewWeek(null); setRecOnlyPending(false); setRecSelected(new Set()); };
+                const clearAll = () => { setRecFilter({ person: "", project: "", cc: "" }); setRecWeekFrom(""); setRecWeekTo(""); setDbFilter(""); setRecOnlyPending(false); setRecSelected(new Set()); setRecPage(0); };
                 const pendingTh = "px-3 py-2.5 text-left text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-[0.04em] whitespace-nowrap sticky top-0 bg-[var(--surface-alt)] z-10";
                 const recTd = "px-3 py-2.5 text-[13px]";
+                const recTotalPages = Math.max(1, Math.ceil(sortedDb.length / recPageSize));
                 const recordsJsx = (
                 <div>
-                  {/* Barra de filtros — nav de semana + filtros lado a lado */}
+                  {/* Barra de filtros */}
                   <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex flex-wrap items-center gap-2">
-                    {/* Week nav */}
-                    {previewWeeks.length > 0 && (
-                      <div className="flex items-center gap-0 bg-[var(--surface)] border border-[var(--border-strong)] rounded-full overflow-hidden shrink-0" style={{boxShadow:'var(--shadow-sm)'}}>
-                        <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx + 1]); setRecSelected(new Set()); }} disabled={weekIdx >= previewWeeks.length - 1}
-                          className="w-9 h-9 flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] disabled:opacity-30 transition-colors text-[14px]">‹</button>
-                        <select value={activeWeek ?? ''} onChange={e => { setPreviewWeek(Number(e.target.value)); setRecSelected(new Set()); }}
-                          className="text-[13px] font-semibold bg-transparent border-none border-x border-[var(--border-subtle)] px-3 h-9 focus:outline-none text-[var(--text-1)]">
-                          {previewWeeks.map(w => <option key={w} value={w}>W{String(w).padStart(2,'0')}</option>)}
-                        </select>
-                        <button onClick={() => { setPreviewWeek(previewWeeks[weekIdx - 1]); setRecSelected(new Set()); }} disabled={weekIdx <= 0}
-                          className="w-9 h-9 flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] disabled:opacity-30 transition-colors text-[14px]">›</button>
-                      </div>
-                    )}
-                    {/* Filters */}
-                    <select value={recFilter.person} onChange={e => setRecFilter(f => ({ ...f, person: e.target.value }))}
+                    <select value={recFilter.person} onChange={e => { setRecFilter(f => ({ ...f, person: e.target.value })); setRecPage(0); }}
                       className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
                       <option value="">Todas as pessoas</option>
                       {recPeople.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
-                    <select value={recFilter.project} onChange={e => setRecFilter(f => ({ ...f, project: e.target.value }))}
+                    <select value={recFilter.project} onChange={e => { setRecFilter(f => ({ ...f, project: e.target.value })); setRecPage(0); }}
                       className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
                       <option value="">Todos os projetos</option>
                       {recProjects.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
-                    <select value={recFilter.cc} onChange={e => setRecFilter(f => ({ ...f, cc: e.target.value }))}
+                    <select value={recFilter.cc} onChange={e => { setRecFilter(f => ({ ...f, cc: e.target.value })); setRecPage(0); }}
                       className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
                       <option value="">Todos os CCs</option>
                       {recCcs.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <input value={dbFilter} onChange={e => setDbFilter(e.target.value)}
+                    {/* Faixa de semanas — selects igual ao Panorama */}
+                    <select value={recWeekFrom} onChange={e => { setRecWeekFrom(e.target.value); setRecPage(0); }}
+                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
+                      <option value="">W início</option>
+                      {recAllWeeks.map(w => <option key={w} value={String(w)}>W{String(w).padStart(2,'0')}</option>)}
+                    </select>
+                    <select value={recWeekTo} onChange={e => { setRecWeekTo(e.target.value); setRecPage(0); }}
+                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
+                      <option value="">W fim</option>
+                      {recAllWeeks.map(w => <option key={w} value={String(w)}>W{String(w).padStart(2,'0')}</option>)}
+                    </select>
+                    <input value={dbFilter} onChange={e => { setDbFilter(e.target.value); setRecPage(0); }}
                       placeholder="Buscar…"
                       className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] w-32" />
                     <label className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--text-2)] cursor-pointer select-none whitespace-nowrap">
-                      <input type="checkbox" checked={recOnlyPending} onChange={e => setRecOnlyPending(e.target.checked)} className="accent-[var(--accent)]" />
+                      <input type="checkbox" checked={recOnlyPending} onChange={e => { setRecOnlyPending(e.target.checked); setRecPage(0); }} className="accent-[var(--accent)]" />
                       sem realizado
                     </label>
                     {(isRecFilterActive || recOnlyPending) && (
                       <button onClick={clearAll} className="text-[12.5px] text-[var(--accent)] font-medium whitespace-nowrap">↺ Limpar</button>
                     )}
-                    <span className="ml-auto text-[12px] text-[var(--text-3)] tabular-nums whitespace-nowrap">
-                      {visibleRows.length} registro{visibleRows.length !== 1 ? 's' : ''}
+                    <button onClick={() => exportRegistros(recOnlyPending ? sortedDb.filter(r => r.Hours_Consolidated == null) : sortedDb)} disabled={!sortedDb.length}
+                      className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] text-[12.5px] text-[var(--text-2)] font-medium disabled:opacity-30 hover:bg-[var(--surface-alt)] hover:border-[var(--border-strong)] transition-colors whitespace-nowrap shrink-0">
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6.5 1v8M3.5 6.5l3 3 3-3M1.5 10.5h10"/>
+                      </svg>
+                      Exportar
+                    </button>
+                    <span className="text-[12px] text-[var(--text-3)] tabular-nums whitespace-nowrap">
+                      {sortedDb.length} registro{sortedDb.length !== 1 ? 's' : ''}
                     </span>
                   </div>
 
@@ -2083,7 +2102,7 @@ export default function AlocacoesApp() {
                         <tfoot>
                           <tr className="border-t border-[var(--border-strong)] bg-[var(--surface-alt)]">
                             <td colSpan={5} className="px-3 py-2.5 pl-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3)]">
-                              Total · {visibleRows.length} registro{visibleRows.length !== 1 ? 's' : ''}
+                              Página · {visibleRows.length} registro{visibleRows.length !== 1 ? 's' : ''}
                             </td>
                             <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-[var(--text-1)]">{totalF > 0 ? `${totalF}h` : '—'}</td>
                             <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-[var(--positive-text)]">{totalC > 0 ? `${totalC}h` : '—'}</td>
@@ -2093,6 +2112,30 @@ export default function AlocacoesApp() {
                       )}
                     </table>
                   </div>
+
+                  {/* Paginação */}
+                  {sortedDb.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--border-subtle)] bg-[var(--surface-alt)]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[12px] text-[var(--text-3)] whitespace-nowrap">Linhas:</span>
+                        {[50, 100, 500].map(n => (
+                          <button key={n} onClick={() => { setRecPageSize(n); setRecPage(0); }}
+                            className={`px-2.5 py-1 rounded-[6px] text-[12px] font-medium transition-colors ${recPageSize === n ? 'bg-[var(--accent)] text-[var(--accent-fg)]' : 'text-[var(--text-2)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]'}`}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-[var(--text-3)] tabular-nums">
+                          {recPage * recPageSize + 1}–{Math.min((recPage + 1) * recPageSize, sortedDb.length)} de {sortedDb.length}
+                        </span>
+                        <button onClick={() => setRecPage(p => Math.max(0, p - 1))} disabled={recPage === 0}
+                          className="w-8 h-8 flex items-center justify-center rounded-[6px] text-[var(--text-2)] hover:bg-[var(--surface)] disabled:opacity-30 transition-colors text-[15px]">‹</button>
+                        <button onClick={() => setRecPage(p => Math.min(recTotalPages - 1, p + 1))} disabled={recPage >= recTotalPages - 1}
+                          className="w-8 h-8 flex items-center justify-center rounded-[6px] text-[var(--text-2)] hover:bg-[var(--surface)] disabled:opacity-30 transition-colors text-[15px]">›</button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Barra de ação flutuante */}
                   {recSelected.size > 0 && createPortal(
