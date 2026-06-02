@@ -1961,8 +1961,8 @@ export default function AlocacoesApp() {
                 const recTotalPages = Math.max(1, Math.ceil(sortedDb.length / recPageSize));
                 const recordsJsx = (
                 <div>
-                  {/* Barra de filtros */}
-                  <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex flex-wrap items-center gap-2">
+                  {/* Barra de filtros — linha 1: selects */}
+                  <div className="px-4 pt-3 pb-2 flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)]">
                     <select value={recFilter.person} onChange={e => { setRecFilter(f => ({ ...f, person: e.target.value })); setRecPage(0); }}
                       className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
                       <option value="">Todas as pessoas</option>
@@ -1978,7 +1978,6 @@ export default function AlocacoesApp() {
                       <option value="">Todos os CCs</option>
                       {recCcs.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    {/* Faixa de semanas — selects igual ao Panorama */}
                     <select value={recWeekFrom} onChange={e => { setRecWeekFrom(e.target.value); setRecPage(0); }}
                       className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] min-w-0">
                       <option value="">W início</option>
@@ -1989,9 +1988,12 @@ export default function AlocacoesApp() {
                       <option value="">W fim</option>
                       {recAllWeeks.map(w => <option key={w} value={String(w)}>W{String(w).padStart(2,'0')}</option>)}
                     </select>
+                  </div>
+                  {/* Barra de filtros — linha 2: busca + ações */}
+                  <div className="px-4 py-2.5 border-b border-[var(--border-subtle)] flex items-center gap-2">
                     <input value={dbFilter} onChange={e => { setDbFilter(e.target.value); setRecPage(0); }}
                       placeholder="Buscar…"
-                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] w-32" />
+                      className="h-9 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 text-[13px] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] w-52" />
                     <label className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--text-2)] cursor-pointer select-none whitespace-nowrap">
                       <input type="checkbox" checked={recOnlyPending} onChange={e => { setRecOnlyPending(e.target.checked); setRecPage(0); }} className="accent-[var(--accent)]" />
                       sem realizado
