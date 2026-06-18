@@ -668,7 +668,7 @@ export default function AlocacoesApp() {
 
   const [people, setPeople] = useState(() => _peopleData || []);
   const [projects, setProjects] = useState(() =>
-    _projMetaData ? Object.keys(_projMetaData).filter(k => _projMetaData[k]?.status === 'ativo') : []
+    _projMetaData ? Object.keys(_projMetaData).filter(k => _projMetaData[k]?.status !== 'concluído') : []
   );
   const bus = DEFAULT_BUS;
 
@@ -820,7 +820,7 @@ export default function AlocacoesApp() {
       const [ppl, projsMeta] = await Promise.all([cuPeople.loadAll(), cuProjects.loadAllWithMeta()]);
       if (ppl.length) setPeople(ppl.map(p => p.name));
       if (projsMeta.length) {
-        setProjects(projsMeta.filter(p => p.status === 'ativo').map(p => p.name));
+        setProjects(projsMeta.filter(p => p.status !== 'concluído').map(p => p.name));
         const meta = {};
         for (const p of projsMeta) meta[p.name] = p;
         setProjectMeta(meta);

@@ -18,7 +18,7 @@ async function loadList(listId, filter = null) {
 // IDs dos custom fields da LISTA_PROJETOS (descobertos via clickup_get_custom_fields).
 const PROJ_FIELD_IDS = {
   cliente:        '639c7bb2-4c4f-4298-b644-349c5e033c93',
-  centro_custo:   '60ded30e-06fc-4cb8-9fe1-db0122a0b2f4',
+  centro_custo:   '02320ff2-3cca-4ad0-b5e0-c7dd3d10e925',
   categoria:      'ff1a14ab-5650-405f-ad46-56d840cf014e',
   formato:        '00d86894-e3b5-484b-b882-c7d7634b06de',
 };
@@ -98,7 +98,7 @@ export const people = {
 export const projects = {
   loadAll: () => loadList(LIST_PROJECTS, t => {
     const s = typeof t.status === 'string' ? t.status : t.status?.status;
-    return s?.toLowerCase() === 'ativo';
+    return s?.toLowerCase() !== 'concluído';
   }),
   loadAllWithMeta: loadProjectsWithMeta,
   add: name => addItem(LIST_PROJECTS, name),
