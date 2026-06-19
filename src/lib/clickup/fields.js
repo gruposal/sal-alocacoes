@@ -13,6 +13,7 @@ export const FIELDS = {
   horas_realizadas:  'c704f2c7-aefd-4b70-af83-a42e5996697e',
   rel_colaborador:   'dcd6eb4f-4e04-405d-93dd-8cedb3765938',
   rel_projeto:       'ac9c3838-f316-45ea-ba05-b177b3148715',
+  data_inicio:       'd2f4fdaa-d78c-4b4c-bb4d-c72e1655e0ac',
 };
 
 // Opções do dropdown Centro de Custo

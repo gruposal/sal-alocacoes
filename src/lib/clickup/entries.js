@@ -73,6 +73,17 @@ export async function ensureProject(name) {
   return created.id;
 }
 
+// Retorna timestamp (ms) da segunda-feira de uma semana ISO.
+// Jan 4 é sempre semana 1 (ISO 8601). Usa hora 12 para evitar ambiguidade de DST.
+function isoWeekMonday(year, week) {
+  const jan4 = new Date(year, 0, 4);
+  const dow = jan4.getDay() || 7; // 0=Dom→7
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - (dow - 1) + (week - 1) * 7);
+  monday.setHours(12, 0, 0, 0);
+  return monday.getTime();
+}
+
 export function makeTaskName(year, isoWeek, person, project) {
   const week = String(isoWeek).padStart(2, '0');
   return `${year}-W${week} | ${person} | ${project}`;
@@ -181,6 +192,7 @@ export async function createEntry(row) {
       custom_fields: [
         { id: FIELDS.ano,              value: row.Year },
         { id: FIELDS.semana_num,       value: row.ISO_Week },
+        { id: FIELDS.data_inicio,      value: isoWeekMonday(row.Year, row.ISO_Week) },
         { id: FIELDS.pessoa,           value: row.Person },
         { id: FIELDS.projeto,          value: row.Project },
         ...(ccOptionId ? [{ id: FIELDS.centro_de_custo, value: ccOptionId }] : []),
