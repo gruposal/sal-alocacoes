@@ -1,11 +1,11 @@
 import { cuFetch } from './client.js';
-import { LIST_PEOPLE, LIST_PROJECTS, PEOPLE_FIELDS } from './fields.js';
+import { LIST_PEOPLE, LIST_PROJECTS, LIST_DIRETORIO, PEOPLE_FIELDS, DIRETORIO_FIELDS } from './fields.js';
 
-async function loadList(listId, filter = null) {
+async function loadList(listId, filter = null, includeClosed = true) {
   const rows = [];
   let page = 0;
   while (true) {
-    const data = await cuFetch(`/list/${listId}/task?page=${page}&limit=100&include_closed=true`);
+    const data = await cuFetch(`/list/${listId}/task?page=${page}&limit=100&include_closed=${includeClosed}`);
     let tasks = data.tasks || [];
     if (filter) tasks = tasks.filter(filter);
     rows.push(...tasks.map(t => ({ id: t.id, name: t.name })));
@@ -88,12 +88,13 @@ async function deleteItem(taskId) {
   await cuFetch(`/task/${taskId}`, { method: 'DELETE' });
 }
 
-// Carrega pessoas com o campo Unidade. Retorna [{ id, name, unidade }].
+// Carrega pessoas do Diretório de Salgados com o campo Unidade de negócio (labels).
+// Retorna [{ id, name, unidade }]. Somente ativos (include_closed=false).
 async function loadPeopleWithMeta() {
   const tasks = [];
   let page = 0;
   while (true) {
-    const data = await cuFetch(`/list/${LIST_PEOPLE}/task?page=${page}&limit=100&include_closed=false`);
+    const data = await cuFetch(`/list/${LIST_DIRETORIO}/task?page=${page}&limit=100&include_closed=false`);
     tasks.push(...(data.tasks || []));
     if (data.last_page || !(data.tasks || []).length) break;
     page++;
@@ -101,14 +102,15 @@ async function loadPeopleWithMeta() {
   return tasks
     .map(t => {
       const cf = t.custom_fields || [];
-      const uField = cf.find(f => f.id === PEOPLE_FIELDS.unidade);
+      const uField = cf.find(f => f.id === DIRETORIO_FIELDS.unidade);
       let unidade = null;
-      if (uField && uField.value != null) {
-        const opts = uField.type_config?.options || [];
-        if (typeof uField.value === 'number') {
-          unidade = opts.find(o => o.orderindex === uField.value)?.name ?? null;
-        } else {
-          unidade = opts.find(o => o.id === uField.value)?.name ?? null;
+      if (uField && Array.isArray(uField.value) && uField.value.length > 0) {
+        // labels retorna array de objetos { id, label } ou array de IDs
+        const first = uField.value[0];
+        unidade = first?.label ?? first?.name ?? null;
+        if (!unidade && typeof first === 'string') {
+          const opts = uField.type_config?.options || [];
+          unidade = opts.find(o => o.id === first)?.label ?? null;
         }
       }
       return { id: t.id, name: (t.name || '').trim(), unidade };
@@ -117,9 +119,10 @@ async function loadPeopleWithMeta() {
 }
 
 export const people = {
-  loadAll: () => loadList(LIST_PEOPLE),
+  loadAll: () => loadList(LIST_DIRETORIO, null, false),
   loadAllWithMeta: loadPeopleWithMeta,
-  add: name => addItem(LIST_PEOPLE, name),
+  // Não auto-criar pessoas no Diretório — cadastro é manual no ClickUp.
+  add: _name => Promise.reject(new Error('Cadastro de pessoas é feito diretamente no Diretório de Salgados (ClickUp).')),
   rename: (id, name) => renameItem(id, name),
   remove: id => deleteItem(id),
 };

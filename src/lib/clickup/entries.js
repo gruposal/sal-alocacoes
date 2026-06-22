@@ -1,17 +1,17 @@
 import { cuFetch } from './client.js';
-import { LIST_ENTRIES, LIST_PEOPLE, LIST_PROJECTS, FIELDS, ccIdToName, ccNameToId } from './fields.js';
-import { people, projects } from './lists.js';
+import { LIST_ENTRIES, LIST_PROJECTS, LIST_DIRETORIO, FIELDS, ccIdToName, ccNameToId } from './fields.js';
+import { projects } from './lists.js';
 
 // session cache: task name → clickup task id
 const taskIdCache    = new Map();
-const personIdCache  = new Map(); // person name → clickup task id (LISTA_PESSOAS)
+const personIdCache  = new Map(); // person name → clickup task id (Diretório de Salgados)
 const projectIdCache = new Map(); // project name → clickup task id (LISTA_PROJETOS)
 
-async function fetchAllFromList(listId) {
+async function fetchAllFromList(listId, includeClosed = true) {
   const tasks = [];
   let page = 0;
   while (true) {
-    const data = await cuFetch(`/list/${listId}/task?page=${page}&limit=100&include_closed=true`);
+    const data = await cuFetch(`/list/${listId}/task?page=${page}&limit=100&include_closed=${includeClosed}`);
     tasks.push(...(data.tasks || []));
     if (data.last_page || !(data.tasks || []).length) break;
     page++;
@@ -21,7 +21,9 @@ async function fetchAllFromList(listId) {
 
 async function ensurePersonCache() {
   if (personIdCache.size > 0) return;
-  const tasks = await fetchAllFromList(LIST_PEOPLE);
+  // Carrega o Diretório de Salgados (ativos). Include_closed=false — pessoas desligadas
+  // não devem aparecer no seletor nem receber novas alocações.
+  const tasks = await fetchAllFromList(LIST_DIRETORIO, false);
   tasks.forEach(t => personIdCache.set(t.name.trim(), t.id));
 }
 
@@ -46,18 +48,16 @@ function findInCache(cache, name) {
   return null;
 }
 
-// Auto-cria pessoa em LISTA_PESSOAS se não existir. Idempotente via cache de sessão.
-// Match insensível a acentos: "Edilson Junior" encontra "Edilson Júnior".
-// Erros propagam — não silenciamos: pessoa sem ID linkado quebra o relatório.
+// Resolve o ID do colaborador no Diretório de Salgados. Match insensível a acentos.
+// NÃO auto-cria — o Diretório é gerenciado manualmente no ClickUp.
+// Lança erro se a pessoa não existir (fail fast: alocação sem vínculo é inválida).
 export async function ensurePerson(name) {
   const clean = (name || '').trim();
   if (!clean) throw new Error('ensurePerson: nome vazio');
   await ensurePersonCache();
   const found = findInCache(personIdCache, clean);
   if (found) return found;
-  const created = await people.add(clean);
-  personIdCache.set(clean, created.id);
-  return created.id;
+  throw new Error(`Pessoa "${clean}" não encontrada no Diretório de Salgados. Cadastre-a no ClickUp antes de lançar a alocação.`);
 }
 
 // Auto-cria projeto em LISTA_PROJETOS se não existir. Idempotente via cache de sessão.
@@ -89,6 +89,16 @@ export function makeTaskName(year, isoWeek, person, project) {
   return `${year}-W${week} | ${person} | ${project}`;
 }
 
+function parsePersonProject(taskName) {
+  // Formato canônico: "2026-W16 | Pessoa | Projeto"
+  const m = taskName.match(/^\d{4}-W\d{2}\s*\|\s*(.+?)\s*\|\s*(.+)$/);
+  if (m) return { person: m[1].trim(), project: m[2].trim() };
+  // Formato legado: "Pessoa → Projeto (Sem N)"
+  const old = taskName.match(/^(.+?)\s*→\s*(.+?)(?:\s*\(Sem \d+\))?$/);
+  if (old) return { person: old[1].trim(), project: old[2].trim() };
+  return null;
+}
+
 function fromTask(task) {
   const cf = Object.fromEntries(
     (task.custom_fields || []).map(f => [f.id, f.value ?? null])
@@ -102,13 +112,19 @@ function fromTask(task) {
     businessUnit = opt?.name ?? ccIdToName(ccField.value) ?? '';
   }
 
+  // Person/Project: parsear do nome da task (fonte primária após migração).
+  // Fallback para campos-texto legados caso o nome não seja parseável.
+  const parsed = parsePersonProject(task.name);
+  const person  = parsed?.person  ?? cf[FIELDS.pessoa]  ?? '';
+  const project = parsed?.project ?? cf[FIELDS.projeto] ?? '';
+
   const entry = {
     ID: task.name,
     _taskId: task.id,
     Year: cf[FIELDS.ano] !== null ? Number(cf[FIELDS.ano]) : null,
     ISO_Week: cf[FIELDS.semana_num] !== null ? Number(cf[FIELDS.semana_num]) : null,
-    Person: cf[FIELDS.pessoa] ?? '',
-    Project: cf[FIELDS.projeto] ?? '',
+    Person: person,
+    Project: project,
     Business_Unit: businessUnit,
     Hours_Forecast: cf[FIELDS.horas_previstas] !== null ? Number(cf[FIELDS.horas_previstas]) : null,
     Hours_Consolidated: cf[FIELDS.horas_realizadas] !== null ? Number(cf[FIELDS.horas_realizadas]) : null,
@@ -193,8 +209,6 @@ export async function createEntry(row) {
         { id: FIELDS.ano,              value: row.Year },
         { id: FIELDS.semana_num,       value: row.ISO_Week },
         { id: FIELDS.data_inicio,      value: isoWeekMonday(row.Year, row.ISO_Week) },
-        { id: FIELDS.pessoa,           value: row.Person },
-        { id: FIELDS.projeto,          value: row.Project },
         ...(ccOptionId ? [{ id: FIELDS.centro_de_custo, value: ccOptionId }] : []),
         { id: FIELDS.horas_previstas,  value: row.Hours_Forecast ?? null },
         { id: FIELDS.horas_realizadas, value: row.Hours_Consolidated ?? null },
@@ -204,8 +218,8 @@ export async function createEntry(row) {
 
   taskIdCache.set(name, task.id);
 
-  await setField(task.id, FIELDS.rel_colaborador, { add: [personId] });
-  await setField(task.id, FIELDS.rel_projeto,     { add: [projectId] });
+  await setField(task.id, FIELDS.rel_colaborador_novo, { add: [personId] });
+  await setField(task.id, FIELDS.rel_projeto,          { add: [projectId] });
 
   return task.id;
 }
