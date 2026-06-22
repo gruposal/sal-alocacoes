@@ -9,7 +9,13 @@ export default defineConfig(({ mode }) => {
     base: '/',
     build: {
       outDir: 'dist',
-      sourcemap: false
+      sourcemap: false,
+      rollupOptions: {
+        input: {
+          main: 'index.html',
+          v2:   'index-v2.html',
+        },
+      },
     },
     server: {
       proxy: {

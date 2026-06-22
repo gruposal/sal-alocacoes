@@ -1,5 +1,5 @@
 import { cuFetch } from './client.js';
-import { LIST_PEOPLE, LIST_PROJECTS } from './fields.js';
+import { LIST_PEOPLE, LIST_PROJECTS, PEOPLE_FIELDS } from './fields.js';
 
 async function loadList(listId, filter = null) {
   const rows = [];
@@ -88,8 +88,37 @@ async function deleteItem(taskId) {
   await cuFetch(`/task/${taskId}`, { method: 'DELETE' });
 }
 
+// Carrega pessoas com o campo Unidade. Retorna [{ id, name, unidade }].
+async function loadPeopleWithMeta() {
+  const tasks = [];
+  let page = 0;
+  while (true) {
+    const data = await cuFetch(`/list/${LIST_PEOPLE}/task?page=${page}&limit=100&include_closed=false`);
+    tasks.push(...(data.tasks || []));
+    if (data.last_page || !(data.tasks || []).length) break;
+    page++;
+  }
+  return tasks
+    .map(t => {
+      const cf = t.custom_fields || [];
+      const uField = cf.find(f => f.id === PEOPLE_FIELDS.unidade);
+      let unidade = null;
+      if (uField && uField.value != null) {
+        const opts = uField.type_config?.options || [];
+        if (typeof uField.value === 'number') {
+          unidade = opts.find(o => o.orderindex === uField.value)?.name ?? null;
+        } else {
+          unidade = opts.find(o => o.id === uField.value)?.name ?? null;
+        }
+      }
+      return { id: t.id, name: (t.name || '').trim(), unidade };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
 export const people = {
   loadAll: () => loadList(LIST_PEOPLE),
+  loadAllWithMeta: loadPeopleWithMeta,
   add: name => addItem(LIST_PEOPLE, name),
   rename: (id, name) => renameItem(id, name),
   remove: id => deleteItem(id),

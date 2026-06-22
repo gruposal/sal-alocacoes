@@ -3,6 +3,12 @@ export const LIST_ENTRIES  = import.meta.env.VITE_CLICKUP_LIST_ENTRIES;
 export const LIST_PEOPLE   = import.meta.env.VITE_CLICKUP_LIST_PEOPLE;
 export const LIST_PROJECTS = import.meta.env.VITE_CLICKUP_LIST_PROJECTS;
 
+// Custom fields da LISTA_PESSOAS
+export const PEOPLE_FIELDS = {
+  unidade: '9fa24352-fb7e-40ca-a58a-d56113bc03f3',
+  cargo:   'f7a6e173-46b6-4bc8-8dad-00cf9b7bd4bb',
+};
+
 export const FIELDS = {
   ano:               '6cfe5832-2f23-48a6-85b8-3d4b2772aa3d',
   semana_num:        'f277efd9-5809-4b96-aa83-64db7d351891',
