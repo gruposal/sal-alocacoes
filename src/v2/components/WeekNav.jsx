@@ -1,7 +1,6 @@
-import { getISOWeek, startOfISOWeek, endOfISOWeek, addWeeks, subWeeks } from 'date-fns';
+import { getISOWeek, addWeeks, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
-import { getFeriado, setFeriado, getWeekCap } from '../lib/feriados.js';
 
 // Retorna a data da segunda-feira de uma semana ISO.
 function mondayOfWeek(year, week) {
@@ -22,9 +21,6 @@ export default function WeekNav({ year, week, onNavigate }) {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const feriados = getFeriado(year, week);
-  const cap = getWeekCap(year, week);
-
   function prev() {
     const d = subWeeks(monday, 1);
     onNavigate(d.getFullYear(), getISOWeek(d));
@@ -37,12 +33,6 @@ export default function WeekNav({ year, week, onNavigate }) {
 
   function goToday() {
     onNavigate(currentYear, currentWeek);
-  }
-
-  function cycleFeriado() {
-    const next = (feriados + 1) % 5; // 0..4
-    setFeriado(year, week, next);
-    onNavigate(year, week); // re-render via parent state update
   }
 
   const dateRange = `${format(monday, 'd MMM', { locale: ptBR })} – ${format(sunday, 'd MMM', { locale: ptBR })}`;
@@ -77,18 +67,6 @@ export default function WeekNav({ year, week, onNavigate }) {
         >↺ Hoje</button>
       )}
 
-      {/* Feriado toggle */}
-      <button
-        onClick={cycleFeriado}
-        title={`Dias de feriado nesta semana: ${feriados}. Clique para alterar.`}
-        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-          feriados > 0
-            ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-400'
-            : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]'
-        }`}
-      >
-        {feriados > 0 ? `🗓 ${feriados}d feriado · cap ${cap}h` : '🗓 Feriado'}
-      </button>
     </div>
   );
 }
