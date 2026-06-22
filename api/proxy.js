@@ -29,9 +29,10 @@ function listIdFromPath(path) {
 // Apaga todas as chaves de cache de uma lista (pattern cu:/list/{listId}*)
 async function invalidateList(redis, listId) {
   try {
+    const pattern = listId ? `cu:/list/${listId}*` : 'cu:*';
     let cursor = 0;
     do {
-      const [next, keys] = await redis.scan(cursor, { match: `cu:/list/${listId}*`, count: 100 });
+      const [next, keys] = await redis.scan(cursor, { match: pattern, count: 100 });
       if (keys.length) await redis.del(...keys);
       cursor = Number(next);
     } while (cursor !== 0);
@@ -104,11 +105,10 @@ export default async function handler(req, res) {
     }
 
     // ── Invalidação após escrita bem-sucedida ────────────────────────────────
+    // Invalida TODAS as keys de lista — cobre POST /task/{id}/field/... que não
+    // tem listId no path mas altera dados que o GET /list/.../task retorna.
     if (!isGet && redis && upstream.status >= 200 && upstream.status < 300) {
-      const listId = listIdFromPath(afterPrefix);
-      if (listId) {
-        invalidateList(redis, listId); // fire-and-forget
-      }
+      invalidateList(redis, ''); // '' faz pattern cu:* → limpa tudo
     }
 
     res.status(upstream.status).send(text);

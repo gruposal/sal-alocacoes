@@ -167,8 +167,8 @@ export default function Alocar({ people, year, week }) {
       if (consolidatedRows.length) await upsertConsolidated(consolidatedRows);
       showToast(`${person.name} — ${allRows.length} linha${allRows.length > 1 ? 's' : ''} salva${allRows.length > 1 ? 's' : ''}.`);
     } catch (e) {
-      console.warn(e);
-      showToast('Erro ao salvar.');
+      console.error('[Alocar] savePerson error:', e);
+      showToast(`Erro ao salvar: ${e.message || 'verifique o console'}`);
     } finally {
       savingRef.current[person.name] = false;
       setGroups(prev => ({ ...prev, [person.name]: { ...prev[person.name], saving: false } }));
