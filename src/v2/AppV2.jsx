@@ -140,7 +140,13 @@ export default function AppV2() {
             onNavigate={handleNavigate}
           />
         )}
-        {tab === 'dashboard' && <DashboardHistorico />}
+        {tab === 'dashboard' && (
+          <DashboardHistorico
+            people={filteredPeople}
+            year={year}
+            week={week}
+          />
+        )}
       </main>
 
       {/* Bottom nav — mobile */}
