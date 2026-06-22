@@ -34,7 +34,7 @@ function HoursInput({ value, onChange, disabled }) {
   );
 }
 
-export default function PersonCard({ person, rows, projects, projectToCc = {}, cap, onChange, onSave, saving }) {
+export default function PersonCard({ person, rows, projects, projectToCc = {}, cap, onChange, onDeleteRow, onSave, saving }) {
   const [collapsed, setCollapsed] = useState(false);
 
   const status = calcStatus(rows, cap);
@@ -46,13 +46,8 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
     onChange([...rows, { id: uid(), project: '', businessUnit: '', hours_forecast: '', hours_consolidated: '' }]);
   }
 
-  function removeRow(id) {
-    if (rows.length === 1) {
-      // Última linha: reseta para branco em vez de bloquear
-      onChange([{ id: uid(), project: '', businessUnit: '', hours_forecast: '', hours_consolidated: '' }]);
-      return;
-    }
-    onChange(rows.filter(r => r.id !== id));
+  function removeRow(row) {
+    onDeleteRow(row); // deleta no ClickUp + atualiza estado no pai
   }
 
   function updateRow(id, field, value) {
@@ -191,7 +186,7 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
                       )}
                     </div>
                     <button
-                      onClick={() => removeRow(r.id)}
+                      onClick={() => removeRow(r)}
                       title={rows.length === 1 ? 'Limpar linha' : 'Remover linha'}
                       className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--negative-text)] hover:bg-[var(--negative-soft)] transition-colors"
                     >×</button>
@@ -227,7 +222,7 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
                         <button onClick={() => replicateRow(r.id)} className="text-[var(--text-secondary)] hover:text-[var(--accent)]">↺</button>
                       )}
                       <button
-                        onClick={() => removeRow(r.id)}
+                        onClick={() => removeRow(r)}
                         title={rows.length === 1 ? 'Limpar linha' : 'Remover linha'}
                         className="text-[var(--text-secondary)] hover:text-[var(--negative-text)]"
                       >×</button>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { loadForWeek, upsertForecast, upsertConsolidated } from '../../lib/clickup/entries.js';
+import { loadForWeek, upsertForecast, upsertConsolidated, deleteRow as cuDeleteRow } from '../../lib/clickup/entries.js';
 import { projects as cuProjects } from '../../lib/clickup/lists.js';
 import { getWeekCap } from '../lib/feriados.js';
 import PersonCard from '../components/PersonCard.jsx';
@@ -103,6 +103,10 @@ export default function Alocar({ people, year, week }) {
             rows: mine.length
               ? mine.map(r => ({
                   id: uid(),
+                  _taskId: r._taskId ?? null,
+                  _year: r.Year,
+                  _week: r.ISO_Week,
+                  _person: r.Person,
                   project: r.Project,
                   businessUnit: r.Business_Unit || '',
                   hours_forecast: r.Hours_Forecast ?? '',
@@ -139,6 +143,44 @@ export default function Alocar({ people, year, week }) {
       ...prev,
       [personName]: { ...prev[personName], rows },
     }));
+  }
+
+  async function deletePersonRow(personName, row) {
+    // Remove do estado local imediatamente
+    setGroups(prev => {
+      const g = prev[personName];
+      if (!g) return prev;
+      const remaining = g.rows.filter(r => r.id !== row.id);
+      return {
+        ...prev,
+        [personName]: {
+          ...g,
+          rows: remaining.length ? remaining : [blankRow()],
+        },
+      };
+    });
+
+    // Se a linha não existe no ClickUp ainda (sem _taskId), nada a deletar
+    if (!row._taskId && !row.project) return;
+    if (!row._taskId) {
+      // Tenta resolver pelo nome da task
+      const entryRow = {
+        _taskId: null,
+        Year: row._year ?? year,
+        ISO_Week: row._week ?? week,
+        Person: personName,
+        Project: row.project,
+      };
+      try { await cuDeleteRow(entryRow); } catch (e) { console.warn('delete sem _taskId:', e); }
+      return;
+    }
+
+    try {
+      await cuDeleteRow({ _taskId: row._taskId, Year: row._year, ISO_Week: row._week, Person: personName, Project: row.project });
+    } catch (e) {
+      console.error('[Alocar] deleteRow error:', e);
+      showToast(`Erro ao deletar: ${e.message || 'verifique o console'}`);
+    }
   }
 
   async function savePerson(person) {
@@ -268,6 +310,7 @@ export default function Alocar({ people, year, week }) {
                 projectToCc={projectToCc}
                 cap={cap}
                 onChange={rows => setPersonRows(person.name, rows)}
+                onDeleteRow={row => deletePersonRow(person.name, row)}
                 onSave={() => savePerson(person)}
                 saving={g.saving}
               />
