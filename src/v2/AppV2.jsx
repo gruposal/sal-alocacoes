@@ -69,8 +69,8 @@ export default function AppV2() {
     setWeek(w);
   }
 
-  // Telas que mostram WeekNav + UnidadeFilter
-  const showControls = tab !== 'dashboard';
+  const showWeekNav    = tab !== 'dashboard';
+  const showUnidade    = unidades.length > 0;
 
   return (
     <div
@@ -110,12 +110,12 @@ export default function AppV2() {
         </div>
       </header>
 
-      {/* Controls bar (WeekNav + UnidadeFilter) */}
-      {showControls && (
+      {/* Controls bar */}
+      {(showWeekNav || showUnidade) && (
         <div className="bg-[var(--surface)] border-b border-[var(--border)]">
           <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <WeekNav year={year} week={week} onNavigate={handleNavigate} />
-            {unidades.length > 0 && (
+            {showWeekNav && <WeekNav year={year} week={week} onNavigate={handleNavigate} />}
+            {showUnidade && (
               <UnidadeFilter unidades={unidades} value={unidade} onChange={setUnidade} />
             )}
           </div>
