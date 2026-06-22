@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { loadForWeek, upsertForecast, upsertConsolidated, makeTaskName } from '../../lib/clickup/entries.js';
+import { loadForWeek, upsertForecast, upsertConsolidated } from '../../lib/clickup/entries.js';
 import { projects as cuProjects } from '../../lib/clickup/lists.js';
 import { getWeekCap } from '../lib/feriados.js';
 import PersonCard from '../components/PersonCard.jsx';
 
 function uid() { return Math.random().toString(36).slice(2); }
 
-const PROJ_CACHE_KEY = 'ts:cache:projects:v2';
+const PROJ_CACHE_KEY   = 'ts:cache:projects:v2';
+const CC_MAP_CACHE_KEY = 'ts:cache:projectToCc:v1'; // compartilhado com V1
 const CACHE_TTL = 5 * 60 * 1000;
 
 function safeJsonParse(str, fallback) {
@@ -22,12 +23,35 @@ export default function Alocar({ people, year, week }) {
   const cap = getWeekCap(year, week);
 
   // groups: Map<personName, { rows, loading, saving }>
-  const [groups, setGroups] = useState({});
-  const [projects, setProjects] = useState([]);
+  const [groups, setGroups]         = useState({});
+  const [projects, setProjects]     = useState([]);
+  const [projectToCc, setProjectToCc] = useState(() => {
+    // Reutiliza o mapa já construído pelo V1 (mesmo cache key)
+    try { return JSON.parse(localStorage.getItem(CC_MAP_CACHE_KEY) || 'null')?.data ?? {}; }
+    catch { return {}; }
+  });
   const [loadingWeek, setLoadingWeek] = useState(false);
-  const [toast, setToast] = useState(null);
+  const [toast, setToast]           = useState(null);
   const savingRef = useRef({});
-  const weekRef = useRef({ year, week });
+  const weekRef   = useRef({ year, week });
+
+  function mergeIntoCcMap(rows) {
+    if (!rows?.length) return;
+    setProjectToCc(prev => {
+      const votes = {};
+      Object.entries(prev).forEach(([p, cc]) => { votes[p] = { [cc]: 1 }; });
+      rows.forEach(r => {
+        if (!r.Project || !r.Business_Unit) return;
+        votes[r.Project] ??= {};
+        votes[r.Project][r.Business_Unit] = (votes[r.Project][r.Business_Unit] || 0) + 1;
+      });
+      const next = { ...prev };
+      Object.entries(votes).forEach(([proj, counts]) => {
+        next[proj] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+      });
+      return next;
+    });
+  }
 
   function showToast(msg) {
     setToast(msg);
@@ -68,6 +92,8 @@ export default function Alocar({ people, year, week }) {
 
       // Se a semana mudou enquanto carregava, descarta
       if (weekRef.current.year !== yr || weekRef.current.week !== wk) return;
+
+      mergeIntoCcMap(allRows);
 
       setGroups(prev => {
         const next = { ...prev };
@@ -239,6 +265,7 @@ export default function Alocar({ people, year, week }) {
                 person={person}
                 rows={g.rows}
                 projects={projects}
+                projectToCc={projectToCc}
                 cap={cap}
                 onChange={rows => setPersonRows(person.name, rows)}
                 onSave={() => savePerson(person)}

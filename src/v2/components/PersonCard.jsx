@@ -34,7 +34,7 @@ function HoursInput({ value, onChange, disabled }) {
   );
 }
 
-export default function PersonCard({ person, rows, projects, cap, onChange, onSave, saving }) {
+export default function PersonCard({ person, rows, projects, projectToCc = {}, cap, onChange, onSave, saving }) {
   const [collapsed, setCollapsed] = useState(false);
 
   const status = calcStatus(rows, cap);
@@ -65,7 +65,11 @@ export default function PersonCard({ person, rows, projects, cap, onChange, onSa
         if (value === '') return { ...r, hours_consolidated: '' };
         return { ...r, hours_consolidated: Math.max(0, Math.min(99, parseInt(value, 10) || 0)) };
       }
-      return { ...r, [field]: value };
+      const next = { ...r, [field]: value };
+      if (field === 'project' && value && projectToCc[value]) {
+        next.businessUnit = projectToCc[value];
+      }
+      return next;
     }));
   }
 
