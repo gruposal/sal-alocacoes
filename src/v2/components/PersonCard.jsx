@@ -47,7 +47,11 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
   }
 
   function removeRow(id) {
-    if (rows.length === 1) return;
+    if (rows.length === 1) {
+      // Última linha: reseta para branco em vez de bloquear
+      onChange([{ id: uid(), project: '', businessUnit: '', hours_forecast: '', hours_consolidated: '' }]);
+      return;
+    }
     onChange(rows.filter(r => r.id !== id));
   }
 
@@ -188,8 +192,8 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
                     </div>
                     <button
                       onClick={() => removeRow(r.id)}
-                      disabled={rows.length === 1}
-                      className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--negative-text)] hover:bg-[var(--negative-soft)] transition-colors disabled:opacity-20"
+                      title={rows.length === 1 ? 'Limpar linha' : 'Remover linha'}
+                      className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--negative-text)] hover:bg-[var(--negative-soft)] transition-colors"
                     >×</button>
                   </div>
 
@@ -224,8 +228,8 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
                       )}
                       <button
                         onClick={() => removeRow(r.id)}
-                        disabled={rows.length === 1}
-                        className="text-[var(--text-secondary)] hover:text-[var(--negative-text)] disabled:opacity-20"
+                        title={rows.length === 1 ? 'Limpar linha' : 'Remover linha'}
+                        className="text-[var(--text-secondary)] hover:text-[var(--negative-text)]"
                       >×</button>
                     </div>
                   </div>
