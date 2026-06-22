@@ -32,6 +32,7 @@ export default function AppV2() {
   const [unidade, setUnidade] = useState(null); // null = todas
   const [people, setPeople]   = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Carrega pessoas com unidade (com cache)
   const loadPeople = useCallback(async () => {
@@ -114,7 +115,18 @@ export default function AppV2() {
       {(showWeekNav || showUnidade) && (
         <div className="bg-[var(--surface)] border-b border-[var(--border)]">
           <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            {showWeekNav && <WeekNav year={year} week={week} onNavigate={handleNavigate} />}
+            <div className="flex items-center gap-3">
+              {showWeekNav && <WeekNav year={year} week={week} onNavigate={handleNavigate} />}
+              {showWeekNav && (
+                <button
+                  onClick={() => setReloadKey(k => k + 1)}
+                  title="Recarregar dados da semana"
+                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors px-1"
+                >
+                  ↻
+                </button>
+              )}
+            </div>
             {showUnidade && (
               <UnidadeFilter unidades={unidades} value={unidade} onChange={setUnidade} />
             )}
@@ -126,6 +138,7 @@ export default function AppV2() {
       <main className="max-w-6xl mx-auto">
         {tab === 'alocar' && (
           <Alocar
+            key={reloadKey}
             people={filteredPeople}
             year={year}
             week={week}
@@ -134,6 +147,7 @@ export default function AppV2() {
         )}
         {tab === 'ver' && (
           <VerAlocacao
+            key={reloadKey}
             people={filteredPeople}
             year={year}
             week={week}
