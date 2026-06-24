@@ -1,6 +1,23 @@
 import { useState } from 'react';
-import { CENTRO_DE_CUSTO_OPTIONS } from '../../lib/clickup/fields.js';
+import { CENTRO_DE_CUSTO_OPTIONS, ccColor } from '../../lib/clickup/fields.js';
 import Combobox from './Combobox.jsx';
+
+function StatusBar({ totalF, totalC, cap }) {
+  const pctF = Math.min(100, cap > 0 ? Math.round((totalF / cap) * 100) : 0);
+  const pctC = Math.min(100, cap > 0 ? Math.round((totalC / cap) * 100) : 0);
+  const over = totalF > cap;
+  const barColor = over ? 'var(--negative)' : totalC >= totalF && totalF > 0 ? 'var(--positive)' : totalF > 0 ? 'var(--accent)' : 'var(--border)';
+  return (
+    <div className="w-full h-1.5 rounded-full bg-[var(--surface-raised)] overflow-hidden mt-1.5 relative">
+      <div className="h-full rounded-full transition-all duration-300 absolute top-0 left-0"
+        style={{ width: `${pctF}%`, background: barColor }} />
+      {pctC > 0 && pctC < pctF && (
+        <div className="h-full rounded-full transition-all duration-300 absolute top-0 left-0 bg-[var(--positive)]"
+          style={{ width: `${pctC}%` }} />
+      )}
+    </div>
+  );
+}
 
 function uid() { return Math.random().toString(36).slice(2); }
 
@@ -93,10 +110,13 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
         </button>
 
         <div className="flex-1 min-w-0">
-          <span className="font-semibold text-[15px] text-[var(--text-primary)] truncate">{person.name}</span>
-          {person.unidade && (
-            <span className="ml-2 text-xs text-[var(--text-secondary)]">{person.unidade}</span>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-[15px] text-[var(--text-primary)] truncate">{person.name}</span>
+            {person.unidade && (
+              <span className="text-xs text-[var(--text-secondary)] shrink-0">{person.unidade}</span>
+            )}
+          </div>
+          <StatusBar totalF={totalF} totalC={totalC} cap={cap} />
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -135,7 +155,8 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
       {!collapsed && (
         <div className="border-t border-[var(--border-subtle)]">
           {/* Desktop header */}
-          <div className="hidden sm:grid grid-cols-[1fr_140px_64px_64px_48px_32px] gap-2 px-4 py-1.5 text-[11px] uppercase tracking-wide text-[var(--text-secondary)] bg-[var(--surface-raised)] border-b border-[var(--border-subtle)]">
+          <div className="hidden sm:grid grid-cols-[10px_1fr_140px_64px_64px_48px_32px] gap-2 px-4 py-1.5 text-[11px] uppercase tracking-wide text-[var(--text-secondary)] bg-[var(--surface-raised)] border-b border-[var(--border-subtle)]">
+            <span />
             <span>Projeto</span>
             <span>Centro de Custo</span>
             <span className="text-center">Prev.</span>
@@ -153,7 +174,9 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
               return (
                 <div key={r.id}>
                   {/* Desktop row */}
-                  <div className="hidden sm:grid grid-cols-[1fr_140px_64px_64px_48px_32px] gap-2 items-center px-4 py-2">
+                  <div className="hidden sm:grid grid-cols-[10px_1fr_140px_64px_64px_48px_32px] gap-2 items-center px-4 py-2">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ background: r.businessUnit ? ccColor(r.businessUnit) : 'var(--border)' }} />
                     <Combobox
                       value={r.project}
                       onChange={v => updateRow(r.id, 'project', v)}
@@ -194,13 +217,17 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
 
                   {/* Mobile card */}
                   <div className="sm:hidden p-3 space-y-2">
-                    <Combobox
-                      value={r.project}
-                      onChange={v => updateRow(r.id, 'project', v)}
-                      options={projects}
-                      placeholder="Projeto…"
-                      className="w-full text-sm rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] py-2 px-3 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-                    />
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ background: r.businessUnit ? ccColor(r.businessUnit) : 'var(--border)' }} />
+                      <Combobox
+                        value={r.project}
+                        onChange={v => updateRow(r.id, 'project', v)}
+                        options={projects}
+                        placeholder="Projeto…"
+                        className="flex-1 text-sm rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] py-2 px-3 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                      />
+                    </div>
                     <div className="flex items-center gap-2">
                       <select
                         value={r.businessUnit}
