@@ -6,11 +6,13 @@ import UnidadeFilter from './components/UnidadeFilter.jsx';
 import Alocar from './screens/Alocar.jsx';
 import VerAlocacao from './screens/VerAlocacao.jsx';
 import DashboardHistorico from './screens/DashboardHistorico.jsx';
+import Individual from './screens/Individual.jsx';
 
 const TABS = [
-  { id: 'alocar',     label: 'Alocar' },
-  { id: 'ver',        label: 'Ver Alocação' },
-  { id: 'dashboard',  label: 'Dashboard' },
+  { id: 'alocar',      label: 'Alocar' },
+  { id: 'ver',         label: 'Ver Alocação' },
+  { id: 'individual',  label: 'Minha Semana' },
+  { id: 'dashboard',   label: 'Dashboard' },
 ];
 
 const PEOPLE_CACHE_KEY = 'ts:cache:people:v2';
@@ -71,7 +73,7 @@ export default function AppV2() {
   }
 
   const showWeekNav    = tab !== 'dashboard';
-  const showUnidade    = unidades.length > 0;
+  const showUnidade    = unidades.length > 0 && tab !== 'individual' && tab !== 'dashboard';
 
   return (
     <div
@@ -152,6 +154,14 @@ export default function AppV2() {
             year={year}
             week={week}
             onNavigate={handleNavigate}
+          />
+        )}
+        {tab === 'individual' && (
+          <Individual
+            key={reloadKey}
+            people={people}
+            year={year}
+            week={week}
           />
         )}
         {tab === 'dashboard' && (

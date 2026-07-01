@@ -53,7 +53,7 @@ function StatusBar({ rows, cap }) {
 }
 
 function PersonRow({ person, rows, cap, monthRows, monthLoading }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [monthExpanded, setMonthExpanded] = useState(false);
   const status = calcStatus(rows, cap);
   const totalF = rows.reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
