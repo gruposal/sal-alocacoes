@@ -1,8 +1,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getISOWeek, getMonth, getYear } from 'date-fns';
 import { loadForWeek, upsertForecast, upsertConsolidated, deleteRow as cuDeleteRow } from '../../lib/clickup/entries.js';
 import { projects as cuProjects } from '../../lib/clickup/lists.js';
 import { getWeekCap } from '../lib/feriados.js';
 import PersonCard from '../components/PersonCard.jsx';
+
+// Semanas ISO que pertencem a um dado mês/ano (pelo critério da quinta-feira).
+function weeksOfMonth(year, month) {
+  const weeks = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) {
+    const w = getISOWeek(d);
+    const wy = d.getDay() === 4
+      ? d.getFullYear()
+      : (w === 1 && d.getMonth() === 11) ? d.getFullYear() + 1
+      : (w >= 52 && d.getMonth() === 0) ? d.getFullYear() - 1
+      : d.getFullYear();
+    const key = `${wy}-${w}`;
+    if (!weeks.find(x => x.key === key)) weeks.push({ year: wy, week: w, key });
+    d.setDate(d.getDate() + 1);
+  }
+  return weeks;
+}
 
 function uid() { return Math.random().toString(36).slice(2); }
 
@@ -32,6 +51,9 @@ export default function Alocar({ people, year, week }) {
   });
   const [loadingWeek, setLoadingWeek] = useState(false);
   const [toast, setToast]           = useState(null);
+  const [collapseAllToggle, setCollapseAllToggle] = useState(null); // 'collapse' | 'expand' | null
+  const [monthData, setMonthData]     = useState({}); // personName → rows[]
+  const [loadingMonth, setLoadingMonth] = useState(false);
   const savingRef = useRef({});
   const weekRef   = useRef({ year, week });
 
@@ -137,6 +159,30 @@ export default function Alocar({ people, year, week }) {
   useEffect(() => {
     loadWeekData(year, week, people);
   }, [year, week, people, loadWeekData]);
+
+  // Carrega acumulado do mês (lazy, por trás da seção "Acumulado do mês" de cada card)
+  useEffect(() => {
+    if (!people.length) return;
+    const selDate = new Date(year, 0, 4 + (week - 1) * 7); // aprox. data da semana
+    const month = getMonth(selDate);
+    const monthYear = getYear(selDate);
+    const weeks = weeksOfMonth(monthYear, month);
+
+    setLoadingMonth(true);
+    setMonthData({});
+
+    Promise.all(weeks.map(w => loadForWeek(w.year, w.week)))
+      .then(results => {
+        const allRows = results.flat();
+        const byPerson = {};
+        for (const p of people) {
+          byPerson[p.name] = allRows.filter(r => r.Person === p.name);
+        }
+        setMonthData(byPerson);
+      })
+      .catch(e => console.error('[Alocar] loadMonth error:', e))
+      .finally(() => setLoadingMonth(false));
+  }, [year, week, people]);
 
   function setPersonRows(personName, rows) {
     setGroups(prev => ({
@@ -248,6 +294,11 @@ export default function Alocar({ people, year, week }) {
     const c = g.rows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
     return f > 0 && c >= f;
   }).length;
+  const semAlocacao = people.filter(p => {
+    const g = groups[p.name];
+    if (!g || g.loading) return false;
+    return g.rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0) === 0;
+  }).length;
 
   if (!people.length) {
     return (
@@ -261,11 +312,12 @@ export default function Alocar({ people, year, week }) {
     <div className="px-4 py-4 pb-20 space-y-4">
       {/* KPIs */}
       {(totalF > 0 || totalC > 0) && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { label: 'Previstas', value: `${totalF}h` },
             { label: 'Realizadas', value: `${totalC}h` },
             { label: 'Com gap', value: comGap },
+            { label: 'Sem alocação', value: semAlocacao },
             { label: 'Fechados', value: fechados },
           ].map(k => (
             <div key={k.label} className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3 text-center">
@@ -276,11 +328,24 @@ export default function Alocar({ people, year, week }) {
         </div>
       )}
 
-      {/* Botão salvar tudo */}
-      <div className="flex justify-end">
+      {/* Botões de ação */}
+      <div className="flex justify-end items-center gap-2">
+        <button
+          onClick={() => setCollapseAllToggle('collapse')}
+          className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+        >
+          Colapsar tudo
+        </button>
+        <span className="text-[var(--border)]">·</span>
+        <button
+          onClick={() => setCollapseAllToggle('expand')}
+          className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+        >
+          Expandir tudo
+        </button>
         <button
           onClick={saveAll}
-          className="text-sm px-4 py-1.5 rounded-full border border-[var(--accent)] text-[var(--accent)] font-medium hover:bg-[var(--accent)] hover:text-white transition-colors"
+          className="ml-2 text-sm px-4 py-1.5 rounded-full border border-[var(--accent)] text-[var(--accent)] font-medium hover:bg-[var(--accent)] hover:text-white transition-colors"
         >
           → Salvar tudo
         </button>
@@ -313,6 +378,9 @@ export default function Alocar({ people, year, week }) {
                 onDeleteRow={row => deletePersonRow(person.name, row)}
                 onSave={() => savePerson(person)}
                 saving={g.saving}
+                forceCollapsed={collapseAllToggle}
+                monthRows={monthData[person.name] || null}
+                monthLoading={loadingMonth}
               />
             )}
           </div>

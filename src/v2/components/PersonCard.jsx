@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CENTRO_DE_CUSTO_OPTIONS, ccColor } from '../../lib/clickup/fields.js';
 import Combobox from './Combobox.jsx';
 
@@ -6,15 +6,16 @@ function StatusBar({ totalF, totalC, cap }) {
   const pctF = Math.min(100, cap > 0 ? Math.round((totalF / cap) * 100) : 0);
   const pctC = Math.min(100, cap > 0 ? Math.round((totalC / cap) * 100) : 0);
   const over = totalF > cap;
-  const barColor = over ? 'var(--negative)' : totalC >= totalF && totalF > 0 ? 'var(--positive)' : totalF > 0 ? 'var(--accent)' : 'var(--border)';
+  const colorF = over ? 'var(--negative)' : totalF > 0 ? 'var(--accent)' : 'var(--border)';
+  const colorC = totalC > cap ? 'var(--negative)' : totalC > 0 ? 'var(--positive)' : 'var(--border)';
   return (
-    <div className="w-full h-1.5 rounded-full bg-[var(--surface-raised)] overflow-hidden mt-1.5 relative">
-      <div className="h-full rounded-full transition-all duration-300 absolute top-0 left-0"
-        style={{ width: `${pctF}%`, background: barColor }} />
-      {pctC > 0 && pctC < pctF && (
-        <div className="h-full rounded-full transition-all duration-300 absolute top-0 left-0 bg-[var(--positive)]"
-          style={{ width: `${pctC}%` }} />
-      )}
+    <div className="space-y-0.5 mt-1.5">
+      <div className="w-full h-1.5 rounded-full bg-[var(--surface-raised)] overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pctF}%`, background: colorF }} />
+      </div>
+      <div className="w-full h-1.5 rounded-full bg-[var(--surface-raised)] overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pctC}%`, background: colorC }} />
+      </div>
     </div>
   );
 }
@@ -31,6 +32,58 @@ function calcStatus(rows, cap) {
   if (totalC === 0)   return { type: 'pendente', label: `pendente · 0/${totalF}h`,          cls: 'text-[var(--warning-text)] bg-[var(--warning-soft)]' };
   if (totalC >= totalF) return { type: 'fechado', label: `fechado · ${totalC}h`,            cls: 'text-[var(--positive-text)] bg-[var(--positive-soft)]' };
   return { type: 'parcial', label: `parcial · ${totalC}/${totalF}h`,                         cls: 'text-[var(--info-text)] bg-[var(--info-soft)]' };
+}
+
+function MonthAccumulated({ monthRows, monthLoading }) {
+  const [expanded, setExpanded] = useState(false);
+  const monthF = (monthRows || []).reduce((s, r) => s + (Number(r.Hours_Forecast) || 0), 0);
+  const monthC = (monthRows || []).reduce((s, r) => s + (Number(r.Hours_Consolidated) || 0), 0);
+
+  return (
+    <div className="border-t border-[var(--border-subtle)] px-4 py-2">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
+      >
+        {expanded ? '▼' : '▶'} Acumulado do mês
+        {monthLoading && <span className="animate-pulse ml-1">…</span>}
+        {!monthLoading && monthRows && (
+          <span className="text-[var(--text-secondary)] ml-1">
+            · {monthF}h prev · {monthC}h real
+          </span>
+        )}
+      </button>
+
+      {expanded && !monthLoading && monthRows && (
+        <div className="mt-2 space-y-1">
+          {Object.entries(
+            monthRows.reduce((acc, r) => {
+              const key = r.Project;
+              if (!acc[key]) acc[key] = { f: 0, c: 0, cc: r.Business_Unit };
+              acc[key].f += Number(r.Hours_Forecast) || 0;
+              acc[key].c += Number(r.Hours_Consolidated) || 0;
+              return acc;
+            }, {})
+          )
+            .sort((a, b) => b[1].f - a[1].f)
+            .map(([proj, data]) => (
+              <div key={proj} className="flex items-center gap-2 text-xs">
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: ccColor(data.cc) }} />
+                <span className="flex-1 text-[var(--text-secondary)] truncate">{proj}</span>
+                <span className="tabular-nums text-[var(--text-primary)]">{data.f}h prev</span>
+                <span className={`tabular-nums ${data.c > 0 ? 'text-[var(--positive-text)]' : 'text-[var(--text-secondary)]'}`}>
+                  {data.c}h real
+                </span>
+              </div>
+            ))}
+          <div className="pt-1 mt-1 border-t border-[var(--border-subtle)] flex justify-between text-xs font-semibold">
+            <span className="text-[var(--text-secondary)]">Total mês</span>
+            <span className="tabular-nums">{monthF}h prev · {monthC}h real</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function HoursInput({ value, onChange, disabled }) {
@@ -51,8 +104,12 @@ function HoursInput({ value, onChange, disabled }) {
   );
 }
 
-export default function PersonCard({ person, rows, projects, projectToCc = {}, cap, onChange, onDeleteRow, onSave, saving }) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function PersonCard({ person, rows, projects, projectToCc = {}, cap, onChange, onDeleteRow, onSave, saving, forceCollapsed, monthRows, monthLoading }) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  useEffect(() => {
+    if (forceCollapsed) setCollapsed(forceCollapsed === 'collapse');
+  }, [forceCollapsed]);
 
   const status = calcStatus(rows, cap);
   const totalF = rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
@@ -267,6 +324,8 @@ export default function PersonCard({ person, rows, projects, projectToCc = {}, c
               className="text-xs text-[var(--accent)] hover:underline"
             >+ Adicionar projeto</button>
           </div>
+
+          <MonthAccumulated monthRows={monthRows} monthLoading={monthLoading} />
         </div>
       )}
     </div>

@@ -1,4 +1,18 @@
+import { useState } from 'react';
+
 export default function UnidadeFilter({ unidades, value, onChange }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.warn('Erro ao copiar link:', e);
+    }
+  }
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wide">Unidade</span>
@@ -27,6 +41,15 @@ export default function UnidadeFilter({ unidades, value, onChange }) {
           </button>
         ))}
       </div>
+      {value && (
+        <button
+          onClick={copyLink}
+          title="Copiar link direto para esta unidade"
+          className="text-xs text-[var(--accent)] hover:underline shrink-0"
+        >
+          {copied ? '✓ copiado' : '🔗 copiar link'}
+        </button>
+      )}
     </div>
   );
 }

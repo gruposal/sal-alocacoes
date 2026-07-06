@@ -5,6 +5,7 @@
     { "source": "/api/clickup/:path*", "destination": "/api/proxy" },
     { "source": "/v2/:path*", "destination": "/index-v2.html" },
     { "source": "/v2", "destination": "/index-v2.html" },
+    { "source": "/:unidade", "destination": "/index-v2.html" },
     { "source": "/:path*", "destination": "/index.html" }
   ]
 }

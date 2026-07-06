@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { getISOWeek, getMonth, getYear, format } from 'date-fns';
+import { getISOWeek, getMonth, getYear, format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { loadForWeek, loadLastYear } from '../../lib/clickup/entries.js';
 import { ccColor } from '../../lib/clickup/fields.js';
@@ -347,7 +347,7 @@ function PeopleView({ rows, people }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-const MONTH_KEY = 'ts:cache:dash:month:v2';
+const MONTH_KEY_PREFIX = 'ts:cache:dash:month:v2';
 const YEAR_KEY  = 'ts:cache:dash:year:v2';
 
 export default function DashboardHistorico({ people, year, week }) {
@@ -359,23 +359,30 @@ export default function DashboardHistorico({ people, year, week }) {
   const [yearProgress, setYearProgress] = useState(0);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  const selDate = useMemo(() => mondayOfWeek(year, week), [year, week]);
-  const monthLabel = format(selDate, 'MMMM yyyy', { locale: ptBR });
-  const currentMonth = getMonth(selDate);
-  const currentMonthYear = getYear(selDate);
+  // Navegação mensal própria do Dashboard, independente da semana global (WeekNav).
+  const initialDate = useMemo(() => mondayOfWeek(year, week), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [viewDate, setViewDate] = useState(initialDate);
+  const monthLabel = format(viewDate, 'MMMM yyyy', { locale: ptBR });
+  const currentMonth = getMonth(viewDate);
+  const currentMonthYear = getYear(viewDate);
+  const monthKey = `${MONTH_KEY_PREFIX}:${currentMonthYear}-${currentMonth}`;
+
+  function prevMonth() { setViewDate(d => subMonths(d, 1)); }
+  function nextMonth() { setViewDate(d => addMonths(d, 1)); }
 
   const loadMonth = useCallback(async () => {
-    const cached = safeJsonParse(localStorage.getItem(MONTH_KEY), null);
+    const cached = safeJsonParse(localStorage.getItem(monthKey), null);
     if (isCacheFresh(cached) && Array.isArray(cached.data)) { setMonthRows(cached.data); return; }
     setLoadingMonth(true);
+    setMonthRows(null);
     try {
       const wks = weeksOfMonth(currentMonthYear, currentMonth);
       const results = await Promise.all(wks.map(w => loadForWeek(w.year, w.week)));
       const rows = results.flat();
       setMonthRows(rows);
-      localStorage.setItem(MONTH_KEY, JSON.stringify({ data: rows, savedAt: Date.now() }));
+      localStorage.setItem(monthKey, JSON.stringify({ data: rows, savedAt: Date.now() }));
     } catch (e) { console.error(e); } finally { setLoadingMonth(false); }
-  }, [currentMonth, currentMonthYear]);
+  }, [currentMonth, currentMonthYear, monthKey]);
 
   const loadYear = useCallback(async () => {
     const cached = safeJsonParse(localStorage.getItem(YEAR_KEY), null);
@@ -406,6 +413,20 @@ export default function DashboardHistorico({ people, year, week }) {
     <div className="px-4 py-4 pb-24 space-y-3">
       {/* Toggle período */}
       <div className="flex items-center gap-3">
+        {periodo === 'mes' && (
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={prevMonth}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] transition-colors"
+              aria-label="Mês anterior"
+            >‹</button>
+            <button
+              onClick={nextMonth}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] transition-colors"
+              aria-label="Próximo mês"
+            >›</button>
+          </div>
+        )}
         <div className="flex gap-[2px] p-[3px] bg-[var(--surface-raised)] rounded-full border border-[var(--border)]">
           <button onClick={() => setPeriodo('mes')}
             className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all capitalize ${periodo === 'mes' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)]'}`}>
