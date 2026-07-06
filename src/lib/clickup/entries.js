@@ -112,11 +112,15 @@ function fromTask(task) {
     businessUnit = opt?.name ?? ccIdToName(ccField.value) ?? '';
   }
 
-  // Person/Project: parsear do nome da task (fonte primária após migração).
-  // Fallback para campos-texto legados caso o nome não seja parseável.
-  const parsed = parsePersonProject(task.name);
-  const person  = parsed?.person  ?? cf[FIELDS.pessoa]  ?? '';
-  const project = parsed?.project ?? cf[FIELDS.projeto] ?? '';
+  // Person/Project: relationship fields são a fonte primária (refletem o nome atual).
+  // Fallback: parsear do título da task → campos-texto legados.
+  const relProj  = cf[FIELDS.rel_projeto];
+  const relColab = cf[FIELDS.rel_colaborador_novo];
+  const parsed   = parsePersonProject(task.name);
+  const person  = (Array.isArray(relColab) && relColab[0]?.name) ? relColab[0].name
+                : parsed?.person  ?? cf[FIELDS.pessoa]  ?? '';
+  const project = (Array.isArray(relProj)  && relProj[0]?.name)  ? relProj[0].name
+                : parsed?.project ?? cf[FIELDS.projeto] ?? '';
 
   const entry = {
     ID: task.name,
@@ -226,8 +230,7 @@ export async function createEntry(row) {
 
 export async function upsertForecast(rows) {
   for (const row of rows) {
-    const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
-    const taskId = await resolveTaskId(name);
+    const taskId = row._taskId || await resolveTaskId(makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project));
 
     if (taskId) {
       await setField(taskId, FIELDS.horas_previstas, row.Hours_Forecast);
@@ -254,8 +257,7 @@ async function resolveTaskId(name) {
 
 export async function upsertConsolidated(rows) {
   for (const row of rows) {
-    const name = makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project);
-    let taskId = await resolveTaskId(name);
+    let taskId = row._taskId || await resolveTaskId(makeTaskName(row.Year, row.ISO_Week, row.Person, row.Project));
     if (!taskId) {
       // Task não existe ainda — cria com forecast null e consolidated preenchido
       taskId = await createEntry({ ...row, Hours_Forecast: row.Hours_Forecast ?? null });

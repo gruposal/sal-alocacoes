@@ -30,3 +30,4 @@ relatorio_alocacao_2026.html
 docs/00_GRUPO-SAL_*.csv
 docs/*.DS_Store
 .vercel
+.env*.local
