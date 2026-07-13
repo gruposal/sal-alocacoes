@@ -119,7 +119,7 @@ export default function Combobox({ value, onChange, options, placeholder, classN
           style={dropStyle}
           className="flex flex-col rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] shadow-lg text-[14px] overflow-hidden"
         >
-          <div className="px-3 py-1.5 text-[10.5px] uppercase tracking-wide text-[var(--text-secondary)] border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] shrink-0">
+          <div className="px-3 py-1.5 text-[10.5px] uppercase tracking-wide text-[var(--text-2)] border-b border-[var(--border-subtle)] bg-[var(--surface-alt)] shrink-0">
             {filtered.length} {filtered.length === 1 ? 'opção' : 'opções'}
           </div>
           <ul role="listbox" className="overflow-y-auto flex-1 overscroll-contain">
@@ -135,8 +135,8 @@ export default function Combobox({ value, onChange, options, placeholder, classN
                 onTouchEnd={e => { e.preventDefault(); select(opt); }}
                 className={[
                   'px-3 py-2 cursor-pointer border-b border-[var(--border-subtle)] last:border-0',
-                  i === highlight ? 'bg-[var(--surface-raised)]' : '',
-                  opt === value ? 'font-semibold text-[var(--accent)]' : 'text-[var(--text-primary)]',
+                  i === highlight ? 'bg-[var(--surface-alt)]' : '',
+                  opt === value ? 'font-semibold text-[var(--accent)]' : 'text-[var(--text-1)]',
                 ].join(' ')}
               >
                 {opt}

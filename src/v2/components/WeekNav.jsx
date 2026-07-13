@@ -42,20 +42,20 @@ export default function WeekNav({ year, week, onNavigate }) {
       <div className="flex items-center gap-1">
         <button
           onClick={prev}
-          className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] transition-colors"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] transition-colors"
           aria-label="Semana anterior"
         >‹</button>
 
         <div className="text-center min-w-[160px]">
-          <span className="font-semibold text-[var(--text-primary)] tabular-nums">
+          <span className="font-semibold text-[var(--text-1)] tabular-nums">
             Semana {String(week).padStart(2, '0')}
           </span>
-          <span className="text-[var(--text-secondary)] text-sm ml-2">{dateRange}</span>
+          <span className="text-[var(--text-2)] text-sm ml-2">{dateRange}</span>
         </div>
 
         <button
           onClick={next}
-          className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] transition-colors"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] transition-colors"
           aria-label="Próxima semana"
         >›</button>
       </div>

@@ -14,9 +14,9 @@ function StatusBar({ totalF, totalC, cap }) {
     ? 'var(--negative)'
     : totalC >= totalF && totalF > 0 ? 'var(--positive)'
     : totalF > 0 ? 'var(--accent)'
-    : 'var(--border)';
+    : 'var(--border-subtle)';
   return (
-    <div className="w-full h-2 rounded-full bg-[var(--surface-raised)] overflow-hidden relative">
+    <div className="w-full h-2 rounded-full bg-[var(--surface-alt)] overflow-hidden relative">
       <div className="h-full rounded-full transition-all absolute top-0 left-0"
         style={{ width: `${pctF}%`, background: barColor }} />
       {pctC > 0 && pctC < pctF && (
@@ -30,7 +30,7 @@ function StatusBar({ totalF, totalC, cap }) {
 function calcStatus(rows, cap) {
   const f = rows.reduce((s, r) => s + (Number(r.hours_forecast) || 0), 0);
   const c = rows.reduce((s, r) => s + (Number(r.hours_consolidated) || 0), 0);
-  if (!f && !c) return { type: 'vazio',    label: 'sem alocação', cls: 'text-[var(--text-secondary)] bg-[var(--surface-raised)] border border-[var(--border)]' };
+  if (!f && !c) return { type: 'vazio',    label: 'sem alocação', cls: 'text-[var(--text-2)] bg-[var(--surface-alt)] border border-[var(--border-subtle)]' };
   if (f > cap)  return { type: 'excedido', label: `excedido · ${f}h`, cls: 'text-[var(--negative-text)] bg-[var(--negative-soft)]' };
   if (c === 0)  return { type: 'pendente', label: `pendente · 0/${f}h`, cls: 'text-[var(--warning-text)] bg-[var(--warning-soft)]' };
   if (c >= f)   return { type: 'fechado',  label: `fechado · ${c}h`, cls: 'text-[var(--positive-text)] bg-[var(--positive-soft)]' };
@@ -50,7 +50,7 @@ function HoursInput({ value, onChange }) {
         if (e.key === 'PageUp')   { e.preventDefault(); onChange(Math.min(99, (Number(value) || 0) + 4)); }
         if (e.key === 'PageDown') { e.preventDefault(); onChange(Math.max(0,  (Number(value) || 0) - 4)); }
       }}
-      className="w-16 text-center tabular-nums text-base rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] py-2 px-1 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+      className="w-16 text-center tabular-nums text-base rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-1)] py-2 px-1 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
     />
   );
 }
@@ -156,7 +156,7 @@ export default function Individual({ people, year, week }) {
 
   if (!people.length) {
     return (
-      <div className="p-8 text-center text-[var(--text-secondary)]">
+      <div className="p-8 text-center text-[var(--text-2)]">
         <p className="text-sm">Aguarde o carregamento das pessoas…</p>
       </div>
     );
@@ -165,8 +165,8 @@ export default function Individual({ people, year, week }) {
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
       {/* Seletor de pessoa */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-1">
-        <label className="text-xs uppercase tracking-wide text-[var(--text-secondary)] font-medium">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 space-y-1">
+        <label className="text-xs uppercase tracking-wide text-[var(--text-2)] font-medium">
           Colaborador
         </label>
         <Combobox
@@ -174,23 +174,23 @@ export default function Individual({ people, year, week }) {
           onChange={selectPerson}
           options={personNames}
           placeholder="Selecione seu nome…"
-          className="w-full text-base rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          className="w-full text-base rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-1)] py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         />
       </div>
 
       {selectedPerson && !loading && rows.length > 0 && (
         <>
           {/* Status + barra */}
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-[var(--text-primary)]">{selectedPerson}</span>
+              <span className="font-semibold text-[var(--text-1)]">{selectedPerson}</span>
               <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${status.cls}`}>
                 {status.label}
               </span>
             </div>
             <StatusBar totalF={totalF} totalC={totalC} cap={cap} />
             <div className="flex items-center justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">
+              <span className="text-[var(--text-2)]">
                 {totalC}h realizadas de {totalF}h previstas
               </span>
               {canReplicate && (
@@ -205,12 +205,12 @@ export default function Individual({ people, year, week }) {
           </div>
 
           {/* Linhas por projeto */}
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] overflow-hidden">
             <div className="px-4 py-2.5 border-b border-[var(--border-subtle)] flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wide text-[var(--text-secondary)] font-medium">
+              <span className="text-xs uppercase tracking-wide text-[var(--text-2)] font-medium">
                 Projetos da semana
               </span>
-              <span className="text-xs text-[var(--text-secondary)] tabular-nums">
+              <span className="text-xs text-[var(--text-2)] tabular-nums">
                 W{week} · {cap}h/semana
               </span>
             </div>
@@ -226,9 +226,9 @@ export default function Individual({ people, year, week }) {
                       <div className="w-2 h-2 rounded-full shrink-0 mt-0.5"
                         style={{ background: ccColor(r.businessUnit) }} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[var(--text-primary)] leading-snug">{r.project}</p>
+                        <p className="text-sm font-medium text-[var(--text-1)] leading-snug">{r.project}</p>
                         {r.businessUnit && (
-                          <p className="text-xs text-[var(--text-secondary)]">{r.businessUnit}</p>
+                          <p className="text-xs text-[var(--text-2)]">{r.businessUnit}</p>
                         )}
                       </div>
                     </div>
@@ -236,14 +236,14 @@ export default function Individual({ people, year, week }) {
                     {/* Horas */}
                     <div className="flex items-center gap-3">
                       {/* Previstas (readonly) */}
-                      <div className="flex-1 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-subtle)] px-3 py-2 text-center">
-                        <div className="text-xs text-[var(--text-secondary)] mb-0.5">Previstas</div>
-                        <div className="tabular-nums text-sm font-medium text-[var(--text-secondary)]">{r.hours_forecast}h</div>
+                      <div className="flex-1 rounded-lg bg-[var(--surface-alt)] border border-[var(--border-subtle)] px-3 py-2 text-center">
+                        <div className="text-xs text-[var(--text-2)] mb-0.5">Previstas</div>
+                        <div className="tabular-nums text-sm font-medium text-[var(--text-2)]">{r.hours_forecast}h</div>
                       </div>
 
                       {/* Realizadas (editável) */}
                       <div className="flex-1 flex flex-col items-center gap-0.5">
-                        <div className="text-xs text-[var(--text-secondary)]">Realizadas</div>
+                        <div className="text-xs text-[var(--text-2)]">Realizadas</div>
                         <HoursInput
                           value={r.hours_consolidated}
                           onChange={v => updateConsolidated(idx, v)}
@@ -261,7 +261,7 @@ export default function Individual({ people, year, week }) {
                           <button
                             onClick={() => replicateRow(idx)}
                             title="Replicar previstas → realizadas"
-                            className="text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+                            className="text-sm text-[var(--text-2)] hover:text-[var(--accent)] transition-colors"
                           >↺</button>
                         )}
                       </div>
@@ -284,27 +284,27 @@ export default function Individual({ people, year, week }) {
       )}
 
       {selectedPerson && loading && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
-          <p className="text-sm text-[var(--text-secondary)] animate-pulse">Carregando…</p>
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-6 text-center">
+          <p className="text-sm text-[var(--text-2)] animate-pulse">Carregando…</p>
         </div>
       )}
 
       {selectedPerson && !loading && rows.length === 0 && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center space-y-1">
-          <p className="text-sm text-[var(--text-primary)] font-medium">Sem alocações nesta semana</p>
-          <p className="text-xs text-[var(--text-secondary)]">Peça para seu gestor lançar as previstas primeiro.</p>
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-6 text-center space-y-1">
+          <p className="text-sm text-[var(--text-1)] font-medium">Sem alocações nesta semana</p>
+          <p className="text-xs text-[var(--text-2)]">Peça para seu gestor lançar as previstas primeiro.</p>
         </div>
       )}
 
       {!selectedPerson && (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center space-y-1">
-          <p className="text-sm text-[var(--text-secondary)]">Selecione seu nome acima para ver e confirmar suas horas realizadas.</p>
+        <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] p-8 text-center space-y-1">
+          <p className="text-sm text-[var(--text-2)]">Selecione seu nome acima para ver e confirmar suas horas realizadas.</p>
         </div>
       )}
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-[var(--text-primary)] text-[var(--canvas)] text-sm font-medium shadow-lg pointer-events-none">
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-[var(--text-1)] text-[var(--canvas)] text-sm font-medium shadow-lg pointer-events-none">
           {toast}
         </div>
       )}

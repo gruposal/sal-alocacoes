@@ -51,6 +51,12 @@ export default function AppV2() {
   const [people, setPeople]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
+  // Mesma chave "theme" da v1 — troca o tema em uma aba reflete na outra.
+  const [theme, setTheme]     = useState(() => {
+    const s = localStorage.getItem('theme');
+    if (s === 'dark' || s === 'light') return s;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   // Slug pendente vindo de um link curto (ex: /comunicacao) — resolvido assim que as unidades carregarem.
   const pendingSlugRef = useRef(unidade ? null : slugFromPath(window.location.pathname));
 
@@ -74,6 +80,12 @@ export default function AppV2() {
   }, []);
 
   useEffect(() => { loadPeople(); }, [loadPeople]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    theme === 'dark' ? root.classList.add('dark') : root.classList.remove('dark');
+    try { localStorage.setItem('theme', theme); } catch {}
+  }, [theme]);
 
   // CSC é 100% overhead — não aloca horas, então some do filtro e da lista de pessoas.
   const alocaveis = people.filter(p => p.unidade !== 'CSC');
@@ -114,46 +126,48 @@ export default function AppV2() {
   const showUnidade    = unidades.length > 0 && tab !== 'individual';
 
   return (
-    <div
-      className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]"
-      style={{ fontFamily: 'Geist, ui-sans-serif, system-ui, sans-serif' }}
-    >
+    <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-1)]">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--surface)] border-b border-[var(--border)] shadow-sm">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-2">
-              <span className="font-display text-lg font-semibold text-[var(--accent)]">SAL</span>
-              <span className="text-[var(--text-secondary)] text-sm">Alocações v2</span>
-            </div>
+      <header className="sticky top-0 z-40 bg-[var(--canvas)]/95 backdrop-blur-md border-b border-[var(--border-subtle)]">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
+          <span className="font-display-italic text-[17px] tracking-[-0.01em] shrink-0 text-[var(--text-1)] after:content-[''] after:inline-block after:w-[5px] after:h-[5px] after:bg-[var(--accent)] after:rounded-full after:ml-[5px] after:translate-y-[-2px] after:align-middle">
+            Grupo SAL · Alocações
+          </span>
+          <span className="text-[10px] font-semibold tracking-wide text-[var(--text-3)] border border-[var(--border-subtle)] rounded-full px-1.5 py-0.5">v2</span>
 
-            {/* Tabs — desktop */}
-            <nav className="hidden sm:flex gap-1">
-              {TABS.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                    tab === t.id
-                      ? 'bg-[var(--accent)] text-white font-medium'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]'
-                  }`}
-                >
+          {/* Tabs — desktop, underline style */}
+          <nav className="hidden sm:flex mx-auto gap-1">
+            {TABS.map(t => {
+              const active = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`relative px-4 py-3 text-[13.5px] font-medium transition-colors ${
+                    active ? 'text-[var(--text-1)]' : 'text-[var(--text-3)] hover:text-[var(--text-1)]'
+                  }`}>
                   {t.label}
+                  {active && (
+                    <span className="absolute left-2 right-2 -bottom-px h-[2px] bg-[var(--accent)] rounded-full" />
+                  )}
                 </button>
-              ))}
-            </nav>
+              );
+            })}
+          </nav>
 
+          <div className="ml-auto flex items-center gap-2">
             {loading && (
-              <span className="text-xs text-[var(--text-secondary)] animate-pulse">carregando…</span>
+              <span className="text-xs text-[var(--text-2)] animate-pulse">carregando…</span>
             )}
+            <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors text-[14px]">
+              {theme === 'dark' ? '☀' : '◑'}
+            </button>
           </div>
         </div>
       </header>
 
       {/* Controls bar */}
       {(showWeekNav || showUnidade) && (
-        <div className="bg-[var(--surface)] border-b border-[var(--border)]">
+        <div className="bg-[var(--surface)] border-b border-[var(--border-subtle)]">
           <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               {showWeekNav && <WeekNav year={year} week={week} onNavigate={handleNavigate} />}
@@ -161,7 +175,7 @@ export default function AppV2() {
                 <button
                   onClick={() => setReloadKey(k => k + 1)}
                   title="Recarregar dados da semana"
-                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors px-1"
+                  className="text-xs text-[var(--text-2)] hover:text-[var(--accent)] transition-colors px-1"
                 >
                   ↻
                 </button>
@@ -203,15 +217,15 @@ export default function AppV2() {
       </main>
 
       {/* Bottom nav — mobile */}
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 bg-[var(--surface)] border-t border-[var(--border)] flex pb-[env(safe-area-inset-bottom)]">
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-[var(--surface)]/95 backdrop-blur-md border-t border-[var(--border-subtle)] flex pb-[env(safe-area-inset-bottom)]">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 py-3 text-xs font-medium transition-colors ${
+            className={`flex-1 py-2.5 text-[10px] font-semibold tracking-wide transition-colors ${
               tab === t.id
                 ? 'text-[var(--accent)]'
-                : 'text-[var(--text-secondary)]'
+                : 'text-[var(--text-3)]'
             }`}
           >
             {t.label}

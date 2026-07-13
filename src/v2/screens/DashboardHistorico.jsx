@@ -40,13 +40,13 @@ function DonutChart({ segments, total, centerLabel, centerSub }) {
   });
   const gradient = shown.length
     ? `conic-gradient(from -90deg, ${stops.join(', ')})`
-    : `conic-gradient(var(--border) 0% 100%)`;
+    : `conic-gradient(var(--border-subtle) 0% 100%)`;
   return (
     <div className="relative flex-shrink-0" style={{ width: 148, height: 148 }}>
       <div style={{ width: 148, height: 148, borderRadius: '50%', background: gradient }} />
       <div className="absolute rounded-full bg-[var(--surface)] flex flex-col items-center justify-center" style={{ inset: '26%' }}>
-        <span className="font-display tabular-nums text-[20px] font-semibold leading-none text-[var(--text-primary)]">{centerLabel}</span>
-        <span className="text-[9px] uppercase tracking-widest text-[var(--text-secondary)] mt-0.5">{centerSub}</span>
+        <span className="font-display tabular-nums text-[20px] font-semibold leading-none text-[var(--text-1)]">{centerLabel}</span>
+        <span className="text-[9px] uppercase tracking-widest text-[var(--text-2)] mt-0.5">{centerSub}</span>
       </div>
     </div>
   );
@@ -67,29 +67,29 @@ function KpiHero({ rows }) {
 
   return (
     <div className="grid grid-cols-3 gap-3">
-      <div className="col-span-2 rounded-[18px] border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
-        <p className="text-[11px] uppercase tracking-widest text-[var(--text-secondary)] mb-1">Total previsto</p>
+      <div className="col-span-2 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-4">
+        <p className="text-[11px] uppercase tracking-widest text-[var(--text-2)] mb-1">Total previsto</p>
         <div className="flex items-end gap-2">
-          <span className="font-display text-[42px] leading-none tabular-nums text-[var(--text-primary)]">{totalF}</span>
-          <span className="text-[var(--text-secondary)] mb-1.5 text-sm">horas</span>
+          <span className="font-display text-[42px] leading-none tabular-nums text-[var(--text-1)]">{totalF}</span>
+          <span className="text-[var(--text-2)] mb-1.5 text-sm">horas</span>
         </div>
         {topCC && (
-          <p className="text-xs text-[var(--text-secondary)] mt-2 flex items-center gap-1.5">
+          <p className="text-xs text-[var(--text-2)] mt-2 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full inline-block" style={{ background: ccColor(topCC[0]) }} />
-            <span className="font-medium text-[var(--text-primary)]">{topPct}%</span> em {topCC[0]}
+            <span className="font-medium text-[var(--text-1)]">{topPct}%</span> em {topCC[0]}
           </p>
         )}
       </div>
-      <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 flex flex-col justify-between">
-        <p className="text-[11px] uppercase tracking-widest text-[var(--text-secondary)]">Realização</p>
+      <div className="rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-4 flex flex-col justify-between">
+        <p className="text-[11px] uppercase tracking-widest text-[var(--text-2)]">Realização</p>
         <div>
           <span className="font-display text-[42px] leading-none tabular-nums"
-            style={{ color: realizacao >= 80 ? 'var(--positive)' : realizacao >= 50 ? 'var(--warning)' : 'var(--text-primary)' }}>
+            style={{ color: realizacao >= 80 ? 'var(--positive)' : realizacao >= 50 ? 'var(--warning)' : 'var(--text-1)' }}>
             {realizacao}
           </span>
-          <span className="text-[var(--text-secondary)] text-sm ml-1">%</span>
+          <span className="text-[var(--text-2)] text-sm ml-1">%</span>
         </div>
-        <p className="text-xs text-[var(--text-secondary)]">{totalC}h realizadas</p>
+        <p className="text-xs text-[var(--text-2)]">{totalC}h realizadas</p>
       </div>
     </div>
   );
@@ -111,8 +111,8 @@ function CCDistribution({ rows }) {
   }, [rows, totalF]);
   if (!segments.length) return null;
   return (
-    <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
-      <p className="text-[11px] uppercase tracking-widest text-[var(--text-secondary)] mb-4">Distribuição por centro de custo</p>
+    <div className="rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-4">
+      <p className="text-[11px] uppercase tracking-widest text-[var(--text-2)] mb-4">Distribuição por centro de custo</p>
       <div className="flex items-center gap-6">
         <DonutChart segments={segments} total={totalF} centerLabel={totalF} centerSub="horas" />
         <div className="flex-1 space-y-2 min-w-0">
@@ -122,12 +122,12 @@ function CCDistribution({ rows }) {
               onMouseLeave={() => setHovered(null)}
               className={`flex items-center gap-2.5 transition-opacity ${hovered && hovered !== s.name ? 'opacity-40' : 'opacity-100'}`}>
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
-              <span className="text-sm text-[var(--text-primary)] truncate flex-1 min-w-0">{s.name}</span>
+              <span className="text-sm text-[var(--text-1)] truncate flex-1 min-w-0">{s.name}</span>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="h-1.5 rounded-full bg-[var(--surface-raised)] w-16 overflow-hidden">
+                <div className="h-1.5 rounded-full bg-[var(--surface-alt)] w-16 overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${s.pct}%`, background: s.color }} />
                 </div>
-                <span className="tabular-nums text-xs text-[var(--text-secondary)] w-8 text-right">{s.pct}%</span>
+                <span className="tabular-nums text-xs text-[var(--text-2)] w-8 text-right">{s.pct}%</span>
               </div>
             </div>
           ))}
@@ -160,17 +160,17 @@ function ProjectPanel({ project, rows, onClose }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-md rounded-[20px] bg-[var(--surface)] border border-[var(--border)] shadow-2xl overflow-hidden"
+        className="relative w-full max-w-md rounded-[20px] bg-[var(--surface)] border border-[var(--border-subtle)] shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-start gap-3">
           <div className="w-3 h-3 rounded-full mt-1 flex-shrink-0" style={{ background: ccColor(data.cc) }} />
           <div className="flex-1 min-w-0">
-            <h2 className="font-semibold text-[var(--text-primary)] leading-tight">{project}</h2>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">{data.cc}</p>
+            <h2 className="font-semibold text-[var(--text-1)] leading-tight">{project}</h2>
+            <p className="text-xs text-[var(--text-2)] mt-0.5">{data.cc}</p>
           </div>
-          <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl leading-none mt-0.5">×</button>
+          <button onClick={onClose} className="text-[var(--text-2)] hover:text-[var(--text-1)] text-xl leading-none mt-0.5">×</button>
         </div>
 
         {/* KPIs */}
@@ -180,15 +180,15 @@ function ProjectPanel({ project, rows, onClose }) {
             { label: 'Horas realizadas', value: `${data.totalC}h` },
           ].map(k => (
             <div key={k.label} className="bg-[var(--surface)] px-5 py-3 text-center">
-              <div className="font-display tabular-nums text-[28px] leading-none text-[var(--text-primary)]">{k.value}</div>
-              <div className="text-[11px] text-[var(--text-secondary)] mt-1">{k.label}</div>
+              <div className="font-display tabular-nums text-[28px] leading-none text-[var(--text-1)]">{k.value}</div>
+              <div className="text-[11px] text-[var(--text-2)] mt-1">{k.label}</div>
             </div>
           ))}
         </div>
 
         {/* Pessoas */}
         <div className="px-5 py-3">
-          <p className="text-[11px] uppercase tracking-widest text-[var(--text-secondary)] mb-3">
+          <p className="text-[11px] uppercase tracking-widest text-[var(--text-2)] mb-3">
             {data.people.length} pessoa{data.people.length !== 1 ? 's' : ''} alocada{data.people.length !== 1 ? 's' : ''}
           </p>
           <div className="space-y-2 max-h-56 overflow-y-auto">
@@ -198,15 +198,15 @@ function ProjectPanel({ project, rows, onClose }) {
               return (
                 <div key={p.name}>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm flex-1 text-[var(--text-primary)]">{p.name}</span>
-                    <span className="tabular-nums text-xs text-[var(--text-secondary)]">{p.f}h prev</span>
+                    <span className="text-sm flex-1 text-[var(--text-1)]">{p.name}</span>
+                    <span className="tabular-nums text-xs text-[var(--text-2)]">{p.f}h prev</span>
                     {p.c > 0 && (
                       <span className={`tabular-nums text-xs font-medium ${desvio < 0 ? 'text-[var(--negative-text)]' : desvio > 0 ? 'text-[var(--positive-text)]' : 'text-[var(--positive-text)]'}`}>
                         {p.c}h real
                       </span>
                     )}
                   </div>
-                  <div className="h-1 rounded-full bg-[var(--surface-raised)] overflow-hidden">
+                  <div className="h-1 rounded-full bg-[var(--surface-alt)] overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-500"
                       style={{ width: `${pct}%`, background: ccColor(data.cc) }} />
                   </div>
@@ -238,21 +238,21 @@ function ProjectBars({ rows, onSelect }) {
   if (!byProject.length) return null;
   const max = byProject[0]?.f || 1;
   return (
-    <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
-      <p className="text-[11px] uppercase tracking-widest text-[var(--text-secondary)] mb-4">Projetos — clique para detalhar</p>
+    <div className="rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-4">
+      <p className="text-[11px] uppercase tracking-widest text-[var(--text-2)] mb-4">Projetos — clique para detalhar</p>
       <div className="space-y-3">
         {byProject.map(p => (
           <button key={p.name} onClick={() => onSelect(p.name)}
-            className="w-full text-left group hover:bg-[var(--surface-raised)] -mx-2 px-2 py-1 rounded-lg transition-colors">
+            className="w-full text-left group hover:bg-[var(--surface-alt)] -mx-2 px-2 py-1 rounded-lg transition-colors">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ccColor(p.cc) }} />
-              <span className="text-sm text-[var(--text-primary)] flex-1 truncate group-hover:text-[var(--accent)] transition-colors">{p.name}</span>
-              <span className="tabular-nums text-xs text-[var(--text-secondary)] flex-shrink-0">
+              <span className="text-sm text-[var(--text-1)] flex-1 truncate group-hover:text-[var(--accent)] transition-colors">{p.name}</span>
+              <span className="tabular-nums text-xs text-[var(--text-2)] flex-shrink-0">
                 {p.people.slice(0, 2).join(', ')}{p.people.length > 2 ? ` +${p.people.length - 2}` : ''}
               </span>
-              <span className="tabular-nums text-sm font-medium text-[var(--text-primary)] w-10 text-right flex-shrink-0">{p.f}h</span>
+              <span className="tabular-nums text-sm font-medium text-[var(--text-1)] w-10 text-right flex-shrink-0">{p.f}h</span>
             </div>
-            <div className="h-1.5 rounded-full bg-[var(--surface-raised)] overflow-hidden">
+            <div className="h-1.5 rounded-full bg-[var(--surface-alt)] overflow-hidden">
               <div className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${(p.f / max) * 100}%`, background: ccColor(p.cc), opacity: p.c > 0 ? 1 : 0.6 }} />
             </div>
@@ -288,33 +288,33 @@ function PeopleView({ rows, people }) {
 
   const [expanded, setExpanded] = useState(null);
 
-  if (!byPerson.length) return <p className="py-6 text-center text-sm text-[var(--text-secondary)]">Sem dados.</p>;
+  if (!byPerson.length) return <p className="py-6 text-center text-sm text-[var(--text-2)]">Sem dados.</p>;
 
   return (
-    <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
-      <p className="text-[11px] uppercase tracking-widest text-[var(--text-secondary)] mb-4">Pessoas</p>
+    <div className="rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface)] px-5 py-4">
+      <p className="text-[11px] uppercase tracking-widest text-[var(--text-2)] mb-4">Pessoas</p>
       <div className="space-y-1">
         {byPerson.map(p => {
           const realizacao = p.f > 0 ? Math.round((p.c / p.f) * 100) : 0;
-          const statusColor = !p.f ? 'var(--border)' : p.c >= p.f ? 'var(--positive)' : p.c > 0 ? 'var(--warning)' : 'var(--accent)';
+          const statusColor = !p.f ? 'var(--border-subtle)' : p.c >= p.f ? 'var(--positive)' : p.c > 0 ? 'var(--warning)' : 'var(--accent)';
           const isOpen = expanded === p.name;
           return (
             <div key={p.name} className="rounded-xl overflow-hidden">
               <button
                 onClick={() => setExpanded(e => e === p.name ? null : p.name)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[var(--surface-raised)] transition-colors text-left rounded-xl"
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[var(--surface-alt)] transition-colors text-left rounded-xl"
               >
-                <span className="text-[var(--text-secondary)] text-xs w-3">{isOpen ? '▼' : '▶'}</span>
-                <span className="flex-1 text-sm font-medium text-[var(--text-primary)] truncate">{p.name}</span>
+                <span className="text-[var(--text-2)] text-xs w-3">{isOpen ? '▼' : '▶'}</span>
+                <span className="flex-1 text-sm font-medium text-[var(--text-1)] truncate">{p.name}</span>
                 {p.unidade && (
-                  <span className="text-xs text-[var(--text-secondary)] hidden sm:inline">{p.unidade}</span>
+                  <span className="text-xs text-[var(--text-2)] hidden sm:inline">{p.unidade}</span>
                 )}
                 {/* Mini progress bar */}
-                <div className="w-16 h-1.5 rounded-full bg-[var(--surface-raised)] overflow-hidden flex-shrink-0">
+                <div className="w-16 h-1.5 rounded-full bg-[var(--surface-alt)] overflow-hidden flex-shrink-0">
                   <div className="h-full rounded-full transition-all"
                     style={{ width: `${Math.min(100, (p.f / 40) * 100)}%`, background: statusColor }} />
                 </div>
-                <span className="tabular-nums text-sm text-[var(--text-primary)] w-12 text-right flex-shrink-0">
+                <span className="tabular-nums text-sm text-[var(--text-1)] w-12 text-right flex-shrink-0">
                   {p.f}h
                 </span>
                 {p.c > 0 && (
@@ -328,15 +328,15 @@ function PeopleView({ rows, people }) {
                   {p.projects.map(proj => (
                     <div key={proj.name} className="flex items-center gap-2 py-1 text-xs">
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ccColor(proj.cc) }} />
-                      <span className="flex-1 text-[var(--text-secondary)] truncate">{proj.name}</span>
-                      <span className="tabular-nums text-[var(--text-primary)]">{proj.f}h</span>
+                      <span className="flex-1 text-[var(--text-2)] truncate">{proj.name}</span>
+                      <span className="tabular-nums text-[var(--text-1)]">{proj.f}h</span>
                       {proj.c > 0 && <span className="tabular-nums text-[var(--positive-text)]">· {proj.c}h real</span>}
                     </div>
                   ))}
                 </div>
               )}
               {isOpen && p.projects.length === 0 && (
-                <p className="ml-6 mb-2 text-xs text-[var(--text-secondary)]">Sem alocações no período.</p>
+                <p className="ml-6 mb-2 text-xs text-[var(--text-2)]">Sem alocações no período.</p>
               )}
             </div>
           );
@@ -417,23 +417,23 @@ export default function DashboardHistorico({ people, year, week }) {
           <div className="flex items-center gap-0.5">
             <button
               onClick={prevMonth}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] transition-colors"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] transition-colors"
               aria-label="Mês anterior"
             >‹</button>
             <button
               onClick={nextMonth}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] transition-colors"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface-alt)] transition-colors"
               aria-label="Próximo mês"
             >›</button>
           </div>
         )}
-        <div className="flex gap-[2px] p-[3px] bg-[var(--surface-raised)] rounded-full border border-[var(--border)]">
+        <div className="flex gap-[2px] p-[3px] bg-[var(--surface-alt)] rounded-full border border-[var(--border-subtle)]">
           <button onClick={() => setPeriodo('mes')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all capitalize ${periodo === 'mes' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)]'}`}>
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all capitalize ${periodo === 'mes' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}>
             {monthLabel}
           </button>
           <button onClick={() => { setPeriodo('ano'); if (!yearRows && !loadingYear) loadYear(); }}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${periodo === 'ano' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)]'}`}>
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${periodo === 'ano' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}>
             {year}
           </button>
         </div>
@@ -446,7 +446,7 @@ export default function DashboardHistorico({ people, year, week }) {
       {isLoading && (
         <div className="flex items-center gap-3 py-10 justify-center">
           <div className="w-5 h-5 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
-          <span className="text-sm text-[var(--text-secondary)]">
+          <span className="text-sm text-[var(--text-2)]">
             {periodo === 'ano' ? `${yearProgress} registros…` : 'Carregando mês…'}
           </span>
         </div>
@@ -455,7 +455,7 @@ export default function DashboardHistorico({ people, year, week }) {
       {/* Lazy load do ano */}
       {needsLoad && (
         <div className="flex flex-col items-center py-12 gap-3">
-          <p className="text-sm text-[var(--text-secondary)]">Dados de {year} não carregados.</p>
+          <p className="text-sm text-[var(--text-2)]">Dados de {year} não carregados.</p>
           <button onClick={loadYear}
             className="px-5 py-2 rounded-full bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90">
             Carregar {year}

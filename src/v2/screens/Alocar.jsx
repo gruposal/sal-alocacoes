@@ -302,7 +302,7 @@ export default function Alocar({ people, year, week }) {
 
   if (!people.length) {
     return (
-      <div className="p-8 text-center text-[var(--text-secondary)]">
+      <div className="p-8 text-center text-[var(--text-2)]">
         <p className="text-sm">Selecione uma unidade ou aguarde o carregamento das pessoas.</p>
       </div>
     );
@@ -320,9 +320,9 @@ export default function Alocar({ people, year, week }) {
             { label: 'Sem alocação', value: semAlocacao },
             { label: 'Fechados', value: fechados },
           ].map(k => (
-            <div key={k.label} className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3 text-center">
-              <div className="text-xl font-semibold tabular-nums text-[var(--text-primary)]">{k.value}</div>
-              <div className="text-xs text-[var(--text-secondary)] mt-0.5">{k.label}</div>
+            <div key={k.label} className="rounded-xl bg-[var(--surface)] border border-[var(--border-subtle)] p-3 text-center">
+              <div className="text-xl font-semibold tabular-nums text-[var(--text-1)]">{k.value}</div>
+              <div className="text-xs text-[var(--text-2)] mt-0.5">{k.label}</div>
             </div>
           ))}
         </div>
@@ -332,14 +332,14 @@ export default function Alocar({ people, year, week }) {
       <div className="flex justify-end items-center gap-2">
         <button
           onClick={() => setCollapseAllToggle('collapse')}
-          className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+          className="text-xs text-[var(--text-2)] hover:text-[var(--accent)] transition-colors"
         >
           Colapsar tudo
         </button>
-        <span className="text-[var(--border)]">·</span>
+        <span className="text-[var(--border-subtle)]">·</span>
         <button
           onClick={() => setCollapseAllToggle('expand')}
-          className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+          className="text-xs text-[var(--text-2)] hover:text-[var(--accent)] transition-colors"
         >
           Expandir tudo
         </button>
@@ -353,7 +353,7 @@ export default function Alocar({ people, year, week }) {
 
       {/* Cards por pessoa */}
       {loadingWeek && (
-        <div className="text-sm text-[var(--text-secondary)] animate-pulse">Carregando semana…</div>
+        <div className="text-sm text-[var(--text-2)] animate-pulse">Carregando semana…</div>
       )}
 
       {people.map(person => {
@@ -361,10 +361,10 @@ export default function Alocar({ people, year, week }) {
         return (
           <div key={person.name}>
             {g.loading ? (
-              <div className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-4 py-4">
+              <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] px-4 py-4">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-[var(--text-primary)]">{person.name}</span>
-                  <span className="text-xs text-[var(--text-secondary)] animate-pulse">carregando…</span>
+                  <span className="font-semibold text-[var(--text-1)]">{person.name}</span>
+                  <span className="text-xs text-[var(--text-2)] animate-pulse">carregando…</span>
                 </div>
               </div>
             ) : (
@@ -389,7 +389,7 @@ export default function Alocar({ people, year, week }) {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-[var(--text-primary)] text-[var(--canvas)] text-sm font-medium shadow-lg pointer-events-none">
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-[var(--text-1)] text-[var(--canvas)] text-sm font-medium shadow-lg pointer-events-none">
           {toast}
         </div>
       )}
