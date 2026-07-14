@@ -1,22 +1,22 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Espelha em dev os rewrites de link curto por unidade do vercel.json
-// (/v2, /v2/:slug, /:unidade → index-v2.html), para poder testar localmente.
-function v2ShortLinks() {
+// Espelha em dev os rewrites do vercel.json:
+// /legacy(/*) → index-legacy.html (v1), qualquer outro caminho "de página"
+// (raiz, /:unidade, /v2 e /v2/:slug legados) → index.html (v2, app principal).
+function shortLinks() {
   return {
-    name: 'v2-short-links',
+    name: 'short-links',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const pathname = (req.url || '').split('?')[0];
         if (pathname.includes('.') || pathname.startsWith('/@') || pathname.startsWith('/api')) {
           return next();
         }
-        const parts = pathname.split('/').filter(Boolean);
-        const isV2Root    = parts.length === 0 ? false : parts[0] === 'v2' && parts.length <= 2;
-        const isBareSlug  = parts.length === 1 && parts[0] !== 'v2';
-        if (pathname === '/v2' || isV2Root || isBareSlug) {
-          req.url = '/index-v2.html';
+        if (pathname === '/legacy' || pathname.startsWith('/legacy/')) {
+          req.url = '/index-legacy.html';
+        } else {
+          req.url = '/index.html';
         }
         next();
       });
@@ -28,15 +28,15 @@ function v2ShortLinks() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    plugins: [react(), v2ShortLinks()],
+    plugins: [react(), shortLinks()],
     base: '/',
     build: {
       outDir: 'dist',
       sourcemap: false,
       rollupOptions: {
         input: {
-          main: 'index.html',
-          v2:   'index-v2.html',
+          main:   'index.html',
+          legacy: 'index-legacy.html',
         },
       },
     },

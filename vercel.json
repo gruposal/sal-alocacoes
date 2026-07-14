@@ -3,9 +3,11 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/clickup/:path*", "destination": "/api/proxy" },
-    { "source": "/v2/:path*", "destination": "/index-v2.html" },
-    { "source": "/v2", "destination": "/index-v2.html" },
-    { "source": "/:unidade", "destination": "/index-v2.html" },
+    { "source": "/legacy", "destination": "/index-legacy.html" },
+    { "source": "/legacy/:path*", "destination": "/index-legacy.html" },
+    { "source": "/v2", "destination": "/index.html" },
+    { "source": "/v2/:path*", "destination": "/index.html" },
+    { "source": "/:unidade", "destination": "/index.html" },
     { "source": "/:path*", "destination": "/index.html" }
   ]
 }

@@ -106,7 +106,7 @@ export default function AppV2() {
   // Sincroniza a unidade selecionada com a URL (link curto /slug), para permitir links diretos por unidade.
   useEffect(() => {
     if (pendingSlugRef.current) return; // aguarda a resolução do slug antes de reescrever a URL
-    const path = unidade ? `/${slugify(unidade)}` : '/v2';
+    const path = unidade ? `/${slugify(unidade)}` : '/';
     if (window.location.pathname !== path || window.location.search) {
       window.history.replaceState(null, '', path);
     }
@@ -133,7 +133,6 @@ export default function AppV2() {
           <span className="font-display-italic text-[17px] tracking-[-0.01em] shrink-0 text-[var(--text-1)] after:content-[''] after:inline-block after:w-[5px] after:h-[5px] after:bg-[var(--accent)] after:rounded-full after:ml-[5px] after:translate-y-[-2px] after:align-middle">
             Grupo SAL · Alocações
           </span>
-          <span className="text-[10px] font-semibold tracking-wide text-[var(--text-3)] border border-[var(--border-subtle)] rounded-full px-1.5 py-0.5">v2</span>
 
           {/* Tabs — desktop, underline style */}
           <nav className="hidden sm:flex mx-auto gap-1">

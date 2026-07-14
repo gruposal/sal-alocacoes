@@ -15,9 +15,24 @@ There are no automated tests — the app uses in-module self-tests via `console.
 
 ## Architecture
 
-This is a **client-only React 19 + Vite** app with no routing library. All state lives in a single root component.
+This is a **client-only React 19 + Vite** app with no routing library. Two independent apps share the same Vite build and ClickUp data layer:
 
-### Component tree
+- **`/` (main, `index.html` → `src/v2/main-v2.jsx` → `AppV2.jsx`)** — current app. Tabs: Alocação, Minha Semana, Dashboard. Supports short links per unidade (`/comunicacao`, etc.) via `vite.config.js` middleware (dev) and `vercel.json` rewrites (prod).
+- **`/legacy` (`index-legacy.html` → `src/main.jsx` → `AlocacoesApp.jsx`)** — retired predecessor, kept read-accessible for reference/rollback. All state lives in one root component; no further feature work expected here.
+
+Old bookmarked `/v2` and `/v2/:slug` links still resolve (rewritten to the main app) for backward compatibility.
+
+### Component tree — main app (`/`)
+
+```
+main-v2.jsx
+└── AppV2.jsx                  (tabs, week/unidade state, ClickUp people load)
+    ├── screens/Alocar.jsx
+    ├── screens/Individual.jsx     ("Minha Semana")
+    └── screens/DashboardHistorico.jsx
+```
+
+### Component tree — legacy app (`/legacy`)
 
 ```
 main.jsx
@@ -26,7 +41,7 @@ main.jsx
         └── Dashboard.jsx (charts/tables for aggregated hours)
 ```
 
-`AlocacoesApp.jsx` is the entire application: it owns the in-memory DB (`db` state), the active week's entries (`entries` state), ClickUp calls, Excel export, and renders the views — `lancar`, `planning`, `dashboard` — by switching on a `view` state variable.
+`AlocacoesApp.jsx` owns the in-memory DB (`db` state), the active week's entries (`entries` state), ClickUp calls, Excel export, and renders its views by switching on a `view` state variable.
 
 ### Data model
 
@@ -57,9 +72,9 @@ Tailwind utility classes are used inline throughout JSX. Global CSS variables fo
 - 40h/week cap is enforced across all rows for the same person+week.
 - Entries persisted in ClickUp use the ClickUp task ID as the row ID.
 
-### Keyboard shortcuts
+### Keyboard shortcuts (legacy app, `/legacy`)
 
-`?` / `Ctrl+K` — help modal, `Shift+1/2/3` — switch views (Lançar / Planejamento / Dashboard).
+`?` / `Ctrl+K` — help modal, `Shift+1/2/3` — switch views.
 
 ### Deployment
 
