@@ -3,6 +3,7 @@ import { getISOWeek } from 'date-fns';
 import { people as cuPeople } from '../lib/clickup/lists.js';
 import WeekNav from './components/WeekNav.jsx';
 import UnidadeFilter from './components/UnidadeFilter.jsx';
+import TopProgressBar from './components/TopProgressBar.jsx';
 import Alocar from './screens/Alocar.jsx';
 import DashboardHistorico from './screens/DashboardHistorico.jsx';
 import Individual from './screens/Individual.jsx';
@@ -127,6 +128,8 @@ export default function AppV2() {
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-1)]">
+      <TopProgressBar visible={loading} label="Carregando pessoas…" />
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[var(--canvas)]/95 backdrop-blur-md border-b border-[var(--border-subtle)]">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
@@ -153,9 +156,6 @@ export default function AppV2() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            {loading && (
-              <span className="text-xs text-[var(--text-2)] animate-pulse">carregando…</span>
-            )}
             <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
               className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface-alt)] transition-colors text-[14px]">
               {theme === 'dark' ? '☀' : '◑'}
