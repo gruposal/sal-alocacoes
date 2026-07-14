@@ -162,6 +162,26 @@ export async function loadForWeek(year, isoWeek) {
   return rows;
 }
 
+// Filtra direto na API pelas entries de uma única pessoa (relationship field).
+// Operator "=" no rel_colaborador_novo é ignorado pelo ClickUp (retorna todo mundo);
+// só "ANY" com value em array filtra de verdade — testado contra a API real.
+export async function loadForPersonWeek(year, isoWeek, personId) {
+  const filters = [
+    { field_id: FIELDS.ano,                operator: '=',   value: year },
+    { field_id: FIELDS.semana_num,         operator: '=',   value: isoWeek },
+    { field_id: FIELDS.rel_colaborador_novo, operator: 'ANY', value: [personId] },
+  ];
+  const rows = [];
+  let page = 0;
+  while (true) {
+    const data = await fetchPage(filters, page);
+    rows.push(...(data.tasks || []).map(fromTask));
+    if (data.last_page || !(data.tasks || []).length) break;
+    page++;
+  }
+  return rows;
+}
+
 export async function loadLastYear(year, { onProgress } = {}) {
   const filters = [
     { field_id: FIELDS.ano, operator: '=', value: year },

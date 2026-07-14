@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { loadForWeek, upsertConsolidated } from '../../lib/clickup/entries.js';
+import { loadForWeek, loadForPersonWeek, upsertConsolidated } from '../../lib/clickup/entries.js';
 import { getWeekCap } from '../lib/feriados.js';
 import { ccColor } from '../../lib/clickup/fields.js';
 import Combobox from '../components/Combobox.jsx';
@@ -77,15 +77,19 @@ export default function Individual({ people, year, week }) {
     else localStorage.removeItem(PERSON_KEY);
   }
 
-  const loadData = useCallback(async (yr, wk, name) => {
+  const loadData = useCallback(async (yr, wk, name, personId) => {
     if (!name) return;
     weekRef.current = { year: yr, week: wk };
     setLoading(true);
     setRows([]);
     try {
-      const allRows = await loadForWeek(yr, wk);
+      // Filtra direto na API pela pessoa (evita baixar as horas de todo mundo).
+      // Sem personId resolvido, cai no fallback antigo (busca tudo e filtra no cliente).
+      const rawRows = personId
+        ? await loadForPersonWeek(yr, wk, personId)
+        : (await loadForWeek(yr, wk)).filter(r => r.Person === name);
       if (weekRef.current.year !== yr || weekRef.current.week !== wk) return;
-      const mine = allRows.filter(r => r.Person === name);
+      const mine = rawRows.filter(r => r.Person === name);
       setRows(mine.map(r => ({
         _taskId: r._taskId ?? null,
         project: r.Project,
@@ -101,9 +105,11 @@ export default function Individual({ people, year, week }) {
     }
   }, []);
 
+  const selectedPersonId = people.find(p => p.name === selectedPerson)?.id ?? null;
+
   useEffect(() => {
-    loadData(year, week, selectedPerson);
-  }, [year, week, selectedPerson, loadData]);
+    loadData(year, week, selectedPerson, selectedPersonId);
+  }, [year, week, selectedPerson, selectedPersonId, loadData]);
 
   function updateConsolidated(idx, value) {
     setRows(prev => prev.map((r, i) => i !== idx ? r : {
