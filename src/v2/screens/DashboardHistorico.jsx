@@ -346,6 +346,24 @@ function PeopleView({ rows, people }) {
   );
 }
 
+// ── Exportação Excel ──────────────────────────────────────────────────────────
+async function exportDashboardExcel(rows, { periodo, monthLabel, year }) {
+  const XLSX = await import('xlsx');
+  const data = rows.map(r => ({
+    Ano: r.Year,
+    Semana: r.ISO_Week,
+    Pessoa: r.Person ?? '',
+    Projeto: r.Project ?? '',
+    'Centro de Custo': r.Business_Unit ?? '',
+    'Horas Previstas': Number(r.Hours_Forecast) || 0,
+    'Horas Realizadas': r.Hours_Consolidated != null ? Number(r.Hours_Consolidated) : '',
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Registros');
+  const label = periodo === 'ano' ? String(year) : monthLabel.replace(/\s+/g, '-');
+  XLSX.writeFile(wb, `SAL-Dashboard_${label}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 const MONTH_KEY_PREFIX = 'ts:cache:dash:month:v2';
 const YEAR_KEY  = 'ts:cache:dash:year:v2';
@@ -439,6 +457,14 @@ export default function DashboardHistorico({ people, year, week }) {
         </div>
         {periodo === 'mes' && !loadingMonth && (
           <button onClick={loadMonth} className="text-xs text-[var(--accent)] hover:underline ml-auto">↻ Atualizar</button>
+        )}
+        {!isLoading && !needsLoad && rows.length > 0 && (
+          <button
+            onClick={() => exportDashboardExcel(rows, { periodo, monthLabel, year })}
+            className={`text-xs text-[var(--accent)] hover:underline flex items-center gap-1 ${periodo === 'mes' && !loadingMonth ? '' : 'ml-auto'}`}
+          >
+            ⬇ Exportar Excel
+          </button>
         )}
       </div>
 
