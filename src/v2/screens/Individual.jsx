@@ -1,10 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadForWeek, loadForPersonWeek, upsertConsolidated } from '../../lib/clickup/entries.js';
+import { projects as cuProjects } from '../../lib/clickup/lists.js';
 import { getWeekCap } from '../lib/feriados.js';
-import { ccColor } from '../../lib/clickup/fields.js';
+import { ccColor, CENTRO_DE_CUSTO_OPTIONS } from '../../lib/clickup/fields.js';
 import Combobox from '../components/Combobox.jsx';
 
 const PERSON_KEY = 'ts:v2:individual:person';
+const PROJ_CACHE_KEY = 'ts:cache:projects:v2';   // compartilhado com Alocar.jsx
+const CC_MAP_CACHE_KEY = 'ts:cache:projectToCc:v1'; // compartilhado com V1/Alocar
+const CACHE_TTL = 5 * 60 * 1000;
+
+function safeJsonParse(str, fallback) {
+  try { return JSON.parse(str) ?? fallback; } catch { return fallback; }
+}
+function isCacheFresh(c) { return c?.savedAt && (Date.now() - c.savedAt) < CACHE_TTL; }
+function uid() { return Math.random().toString(36).slice(2); }
 
 function StatusBar({ totalF, totalC, cap }) {
   const pctF = Math.min(100, cap > 0 ? Math.round((totalF / cap) * 100) : 0);
@@ -61,12 +71,33 @@ export default function Individual({ people, year, week }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [toast, setToast]     = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [projectToCc] = useState(() =>
+    safeJsonParse(localStorage.getItem(CC_MAP_CACHE_KEY), null)?.data ?? {}
+  );
   const weekRef = useRef({ year, week });
 
   function showToast(msg) {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }
+
+  // Carrega lista de projetos ativos (com cache), para permitir lançar horas
+  // em projetos que o gestor ainda não alocou.
+  useEffect(() => {
+    const cached = safeJsonParse(localStorage.getItem(PROJ_CACHE_KEY), null);
+    if (isCacheFresh(cached) && Array.isArray(cached.data)) {
+      setProjects(cached.data);
+      return;
+    }
+    cuProjects.loadAll()
+      .then(data => {
+        const names = data.map(p => p.name);
+        setProjects(names);
+        localStorage.setItem(PROJ_CACHE_KEY, JSON.stringify({ data: names, savedAt: Date.now() }));
+      })
+      .catch(e => console.warn('Erro ao carregar projetos:', e));
+  }, []);
 
   function selectPerson(name) {
     setSelectedPerson(name);
@@ -88,11 +119,13 @@ export default function Individual({ people, year, week }) {
       if (weekRef.current.year !== yr || weekRef.current.week !== wk) return;
       const mine = rawRows.filter(r => r.Person === name);
       setRows(mine.map(r => ({
+        id: uid(),
         _taskId: r._taskId ?? null,
         project: r.Project,
         businessUnit: r.Business_Unit || '',
         hours_forecast: Number(r.Hours_Forecast) || 0,
         hours_consolidated: r.Hours_Consolidated != null ? Number(r.Hours_Consolidated) : '',
+        isNew: false,
       })));
     } catch (e) {
       console.error('[Individual] loadData error:', e);
@@ -108,15 +141,15 @@ export default function Individual({ people, year, week }) {
     loadData(year, week, selectedPerson, selectedPersonId);
   }, [year, week, selectedPerson, selectedPersonId, loadData]);
 
-  function updateConsolidated(idx, value) {
-    setRows(prev => prev.map((r, i) => i !== idx ? r : {
+  function updateConsolidated(id, value) {
+    setRows(prev => prev.map(r => r.id !== id ? r : {
       ...r,
       hours_consolidated: value === '' ? '' : Math.max(0, Math.min(99, parseInt(value, 10) || 0)),
     }));
   }
 
-  function replicateRow(idx) {
-    setRows(prev => prev.map((r, i) => i !== idx ? r : {
+  function replicateRow(id) {
+    setRows(prev => prev.map(r => r.id !== id ? r : {
       ...r,
       hours_consolidated: r.hours_forecast,
     }));
@@ -124,6 +157,34 @@ export default function Individual({ people, year, week }) {
 
   function replicateAll() {
     setRows(prev => prev.map(r => ({ ...r, hours_consolidated: r.hours_forecast })));
+  }
+
+  function addProjectRow() {
+    setRows(prev => [...prev, {
+      id: uid(),
+      _taskId: null,
+      project: '',
+      businessUnit: '',
+      hours_forecast: 0,
+      hours_consolidated: '',
+      isNew: true,
+    }]);
+  }
+
+  function updateNewProject(id, value) {
+    setRows(prev => prev.map(r => r.id !== id ? r : {
+      ...r,
+      project: value,
+      businessUnit: projectToCc[value] || r.businessUnit,
+    }));
+  }
+
+  function updateNewBusinessUnit(id, value) {
+    setRows(prev => prev.map(r => r.id !== id ? r : { ...r, businessUnit: value }));
+  }
+
+  function removeNewRow(id) {
+    setRows(prev => prev.filter(r => r.id !== id));
   }
 
   async function save() {
@@ -181,7 +242,7 @@ export default function Individual({ people, year, week }) {
         />
       </div>
 
-      {selectedPerson && !loading && rows.length > 0 && (
+      {selectedPerson && !loading && (
         <>
           {/* Status + barra */}
           <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] shadow-sm px-4 py-3 space-y-2">
@@ -219,30 +280,68 @@ export default function Individual({ people, year, week }) {
               </span>
             </div>
 
+            {rows.length === 0 && (
+              <div className="px-4 py-6 text-center space-y-1">
+                <p className="text-sm text-[var(--text-1)] font-medium">Sem alocações nesta semana</p>
+                <p className="text-xs text-[var(--text-2)]">Adicione um projeto abaixo para lançar horas mesmo sem previsão do gestor.</p>
+              </div>
+            )}
+
             <div className="divide-y divide-[var(--border-subtle)]">
-              {rows.map((r, idx) => {
+              {rows.map(r => {
                 const replicable = r.hours_forecast > 0 && (r.hours_consolidated === '' || Number(r.hours_consolidated) !== r.hours_forecast);
                 const desvio = (Number(r.hours_consolidated) || 0) - r.hours_forecast;
+                const usedProjects = new Set(rows.map(x => x.project).filter(Boolean));
+                const projectOptions = projects.filter(p => p === r.project || !usedProjects.has(p));
                 return (
-                  <div key={idx} className="px-4 py-3">
+                  <div key={r.id} className="px-4 py-3">
                     {/* Projeto + CC */}
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div className="w-2 h-2 rounded-full shrink-0 mt-0.5"
-                        style={{ background: ccColor(r.businessUnit) }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[var(--text-1)] leading-snug">{r.project}</p>
-                        {r.businessUnit && (
-                          <p className="text-xs text-[var(--text-2)]">{r.businessUnit}</p>
-                        )}
+                    {r.isNew ? (
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <Combobox
+                          value={r.project}
+                          onChange={v => updateNewProject(r.id, v)}
+                          options={projectOptions}
+                          placeholder="Selecione o projeto…"
+                          className="flex-1 text-sm rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-1)] py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                        />
+                        <select
+                          value={r.businessUnit}
+                          onChange={e => updateNewBusinessUnit(r.id, e.target.value)}
+                          className="text-sm rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-1)] py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                        >
+                          <option value="">CC…</option>
+                          {CENTRO_DE_CUSTO_OPTIONS.map(o => (
+                            <option key={o.id} value={o.name}>{o.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => removeNewRow(r.id)}
+                          title="Remover linha"
+                          className="w-6 h-6 shrink-0 flex items-center justify-center rounded text-[var(--text-2)] hover:text-[var(--negative-text)] hover:bg-[var(--negative-soft)] transition-colors"
+                        >×</button>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <div className="w-2 h-2 rounded-full shrink-0 mt-0.5"
+                          style={{ background: ccColor(r.businessUnit) }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[var(--text-1)] leading-snug">{r.project}</p>
+                          {r.businessUnit && (
+                            <p className="text-xs text-[var(--text-2)]">{r.businessUnit}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Horas */}
                     <div className="flex items-center gap-3">
                       {/* Previstas (readonly) */}
                       <div className="flex-1 rounded-md bg-[var(--surface-alt)] border border-[var(--border-subtle)] px-3 py-2 text-center">
                         <div className="text-xs text-[var(--text-2)] mb-0.5">Previstas</div>
-                        <div className="tabular-nums text-sm font-medium text-[var(--text-2)]">{r.hours_forecast}h</div>
+                        <div className="tabular-nums text-sm font-medium text-[var(--text-2)]">
+                          {r.hours_forecast > 0 ? `${r.hours_forecast}h` : '—'}
+                        </div>
                       </div>
 
                       {/* Realizadas (editável) */}
@@ -250,7 +349,7 @@ export default function Individual({ people, year, week }) {
                         <div className="text-xs text-[var(--text-2)]">Realizadas</div>
                         <HoursInput
                           value={r.hours_consolidated}
-                          onChange={v => updateConsolidated(idx, v)}
+                          onChange={v => updateConsolidated(r.id, v)}
                         />
                       </div>
 
@@ -263,7 +362,7 @@ export default function Individual({ people, year, week }) {
                         )}
                         {replicable && (
                           <button
-                            onClick={() => replicateRow(idx)}
+                            onClick={() => replicateRow(r.id)}
                             title="Replicar previstas → realizadas"
                             className="text-sm text-[var(--text-2)] hover:text-[var(--accent)] transition-colors"
                           >↺</button>
@@ -273,6 +372,14 @@ export default function Individual({ people, year, week }) {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Adicionar projeto não alocado */}
+            <div className="px-4 py-2 border-t border-[var(--border-subtle)]">
+              <button
+                onClick={addProjectRow}
+                className="text-xs text-[var(--accent)] hover:underline"
+              >+ Adicionar projeto</button>
             </div>
           </div>
 
@@ -290,13 +397,6 @@ export default function Individual({ people, year, week }) {
       {selectedPerson && loading && (
         <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] shadow-sm p-6 text-center">
           <p className="text-sm text-[var(--text-2)] animate-pulse">Carregando…</p>
-        </div>
-      )}
-
-      {selectedPerson && !loading && rows.length === 0 && (
-        <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface)] shadow-sm p-6 text-center space-y-1">
-          <p className="text-sm text-[var(--text-1)] font-medium">Sem alocações nesta semana</p>
-          <p className="text-xs text-[var(--text-2)]">Peça para seu gestor lançar as previstas primeiro.</p>
         </div>
       )}
 
